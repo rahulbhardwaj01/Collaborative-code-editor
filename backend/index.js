@@ -62,6 +62,11 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("languageUpdated", language);
   });
 
+  // Chat message event
+  socket.on("chatMessage", ({ roomId, userName, message }) => {
+    io.to(roomId).emit("chatMessage", { userName, message });
+  });
+
   socket.on("disconnect", () => {
     if (currentRoom && currentUser) {
       rooms.get(currentRoom).delete(currentUser);

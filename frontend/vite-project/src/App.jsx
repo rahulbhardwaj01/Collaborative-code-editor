@@ -13,6 +13,8 @@ const App = () => {
   const [copySuccess, setCopySuccess] = useState("");
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
 
   useEffect(() => {
     socket.on("userJoined", (users) => {
@@ -32,11 +34,16 @@ const App = () => {
       setLanguage(newLanguage);
     });
 
+    socket.on("chatMessage", ({ userName, message }) => {
+      setChatMessages((prev) => [...prev, { userName, message }]);
+    });
+
     return () => {
       socket.off("userJoined");
       socket.off("codeUpdated");
       socket.off("userTyping");
       socket.off("languageUpdated");
+      socket.off("chatMessage");
     };
   }, []);
 
@@ -69,6 +76,8 @@ const App = () => {
     setUsers([]);
     setTyping("");
     setLanguage("js");
+    setChatMessages([]);
+    setChatInput("");
   };
   const copyRoomId = () => {
     navigator.clipboard
@@ -92,6 +101,14 @@ const App = () => {
     const newLanguage = e.target.value;
     setLanguage(newLanguage);
     socket.emit("languageChange", { roomId, language: newLanguage });
+  };
+
+  const sendChatMessage = (e) => {
+    e.preventDefault();
+    if (chatInput.trim()) {
+      socket.emit("chatMessage", { roomId, userName, message: chatInput });
+      setChatInput("");
+    }
   };
 
   if (!joined) {
@@ -158,6 +175,27 @@ const App = () => {
             fontSize: 14,
           }}
         />
+      </div>
+
+      <div className="chat-panel">
+        <div className="chat-messages">
+          {chatMessages.map((msg, idx) => (
+            <div key={idx} className="chat-message">
+              <span className="chat-user">{msg.userName.slice(0, 8)}:</span> {msg.message}
+            </div>
+          ))}
+        </div>
+        <form className="chat-input-form" onSubmit={sendChatMessage}>
+          <input
+            className="chat-input"
+            type="text"
+            placeholder="Type a message..."
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            maxLength={200}
+          />
+          <button type="submit" className="chat-send-btn">Send</button>
+        </form>
       </div>
     </div>
   );

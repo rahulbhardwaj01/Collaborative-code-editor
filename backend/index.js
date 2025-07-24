@@ -67,6 +67,21 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("chatMessage", { userName, message });
   });
 
+  // Video call signaling events
+  socket.on("join-call", ({ roomId, userName }) => {
+    socket.join(roomId + "-call");
+    socket.to(roomId + "-call").emit("user-joined-call", { userName, socketId: socket.id });
+  });
+
+  socket.on("signal", ({ roomId, signal, to }) => {
+    io.to(to).emit("signal", { signal, from: socket.id });
+  });
+
+  socket.on("leave-call", ({ roomId }) => {
+    socket.leave(roomId + "-call");
+    socket.to(roomId + "-call").emit("user-left-call", { socketId: socket.id });
+  });
+
   socket.on("disconnect", () => {
     if (currentRoom && currentUser) {
       rooms.get(currentRoom).delete(currentUser);

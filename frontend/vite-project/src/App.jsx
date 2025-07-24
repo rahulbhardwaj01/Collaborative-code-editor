@@ -3,6 +3,7 @@ import "./App.css";
 import io from "socket.io-client";
 const socket = io("http://localhost:3000");
 import Editor from "@monaco-editor/react";
+import VideoCall from "./VideoCall";
 
 const App = () => {
   const [joined, setJoined] = useState(false);
@@ -175,6 +176,7 @@ const App = () => {
             fontSize: 14,
           }}
         />
+        <VideoCall socket={socket} roomId={roomId} userName={userName} joined={joined} />
       </div>
 
       <div className="chat-panel">

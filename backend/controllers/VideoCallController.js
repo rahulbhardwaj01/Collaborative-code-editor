@@ -149,4 +149,4 @@ class VideoCallController {
   }
 }
 
-export default new VideoCallController(); 
+export default VideoCallController; 

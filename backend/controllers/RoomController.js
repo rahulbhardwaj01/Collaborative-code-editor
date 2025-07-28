@@ -167,4 +167,4 @@ class RoomController {
   }
 }
 
-export default new RoomController(); 
+export default RoomController; 

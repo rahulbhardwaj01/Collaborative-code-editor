@@ -6,14 +6,15 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node backend/index.js",
-    "dev": "nodemon backend/index.js",
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
     "build": "npm install && cd frontend && cd vite-project && npm install && npm run build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.21.2",
     "simple-peer": "^9.11.1",
     "socket.io": "^4.8.1",

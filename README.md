@@ -3,7 +3,7 @@
 A modern, real-time collaborative code editor built with React, Vite, Node.js, and Socket.IO. This project enables multiple users to join a shared coding room, edit code together, communicate via chat, and collaborate through integrated video calls—all in the browser, with no login required.
 
 🚀 Live Site
-👉 [Visit here]https://codeeditor-app.onrender.com
+👉 [Visit here]https://collaborative-code-editor-0qwj.onrender.com/
 
 🛠️ Tech Stack
 Node.js

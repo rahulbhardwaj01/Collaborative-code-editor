@@ -1,0 +1,46 @@
+name: Auto Comment on Issues
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  auto-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.issue;
+            const author = context.payload.issue.user.login;
+            
+            const comment = `👋 Hi @${author}! Thanks for opening this issue.
+            
+            ## 📋 Issue Guidelines
+            
+            Please make sure your issue includes:
+            - [ ] A clear description of the problem
+            - [ ] Steps to reproduce the issue
+            - [ ] Expected vs actual behavior
+            - [ ] Environment details (OS, browser, etc.)
+            - [ ] Any relevant error messages or logs
+            
+            ## 🏷️ Labels
+            
+            This issue has been automatically assigned to you and labeled as \`auto-assigned\`.
+            
+            ## 💡 Need Help?
+            
+            - Check our [README](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/README.md)
+            - Look for similar issues in the [Issues tab](https://github.com/${context.repo.owner}/${context.repo.repo}/issues)
+            - Join our discussions in the [Discussions tab](https://github.com/${context.repo.owner}/${context.repo.repo}/discussions)
+            
+            We'll review your issue and get back to you soon! 🚀`;
+            
+            await github.rest.issues.createComment({
+              owner: issue.owner,
+              repo: issue.repo,
+              issue_number: issue.number,
+              body: comment
+            });

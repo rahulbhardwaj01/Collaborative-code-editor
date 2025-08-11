@@ -1,0 +1,53 @@
+name: Auto Comment on Pull Requests
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  auto-comment-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.issue;
+            const author = context.payload.pull_request.user.login;
+            const isUpdate = context.eventName === 'synchronize';
+            
+            if (isUpdate) {
+              // Skip commenting on updates, only comment on new PRs
+              return;
+            }
+            
+            const comment = `🎉 Thanks for your pull request @${author}!
+            
+            ## 📋 PR Guidelines
+            
+            Please ensure your PR includes:
+            - [ ] A clear description of the changes
+            - [ ] Tests (if applicable)
+            - [ ] Documentation updates (if needed)
+            - [ ] Follows the existing code style
+            
+            ## 🔍 Review Process
+            
+            - [ ] Code review will be conducted
+            - [ ] Tests must pass
+            - [ ] Documentation will be reviewed
+            
+            ## 🚀 What Happens Next
+            
+            1. Our team will review your changes
+            2. We may request modifications if needed
+            3. Once approved, your PR will be merged
+            
+            Thanks for contributing to our project! 🌟`;
+            
+            await github.rest.issues.createComment({
+              owner: pr.owner,
+              repo: pr.repo,
+              issue_number: pr.number,
+              body: comment
+            });

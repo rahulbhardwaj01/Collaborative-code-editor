@@ -1,0 +1,32 @@
+# Auto-assign configuration
+# This file configures the auto-assign bot behavior
+
+# Auto-assign issues to their authors
+assign_issues_by_author: true
+
+# Auto-assign pull requests to their authors
+assign_pull_requests_by_author: true
+
+# Add labels when auto-assigning
+add_labels: ['auto-assigned']
+
+# Skip auto-assignment for specific keywords in issue/PR titles
+skip_keywords: ['wontfix', 'duplicate', 'invalid', 'question']
+
+# Auto-assign to specific users for certain labels
+label_assignees:
+  bug: ['maintainer1', 'maintainer2']
+  enhancement: ['maintainer1', 'maintainer3']
+  documentation: ['maintainer2', 'maintainer4']
+
+# Auto-assign to specific users for certain paths
+path_assignees:
+  'frontend/': ['frontend-maintainer']
+  'backend/': ['backend-maintainer']
+  'docs/': ['docs-maintainer']
+
+# Number of assignees to add (0 = no limit)
+number_of_assignees: 1
+
+# Skip if the issue/PR already has assignees
+skip_if_assigned: true

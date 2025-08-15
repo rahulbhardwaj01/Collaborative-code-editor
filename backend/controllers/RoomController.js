@@ -23,7 +23,7 @@ class RoomController {
       if (previousRoom) {
         socket.leave(previousRoom);
         const { users } = roomService.removeUserFromRoom(previousRoom, user.userName);
-        socket.to(previousRoom).emit("userJoined", users);
+        this.io.in(previousRoom).emit("userJoined", users);
       }
 
       // Join new room
@@ -31,8 +31,8 @@ class RoomController {
       userService.updateUserRoom(socket.id, roomId);
       const { users } = roomService.addUserToRoom(roomId, userName);
 
-      // Notify all users in the room
-      socket.to(roomId).emit("userJoined", users);
+  // Notify all users in the room
+  this.io.in(roomId).emit("userJoined", users);
       
       console.log(`User ${userName} joined room ${roomId}`);
       return { success: true, users };
@@ -46,10 +46,11 @@ class RoomController {
   handleCodeChange(socket, { roomId, code }) {
     try {
       const updatedCode = roomService.updateRoomCode(roomId, code);
-      if (updatedCode !== null) {
-        socket.to(roomId).emit("codeUpdated", code);
-        return { success: true };
-      }
+        if (updatedCode !== null) {
+          // Broadcast to all users in the room, including sender
+          this.io.in(roomId).emit("codeUpdated", code);
+          return { success: true };
+        }
       return { success: false, error: 'Room not found' };
     } catch (error) {
       console.error('Error in handleCodeChange:', error);

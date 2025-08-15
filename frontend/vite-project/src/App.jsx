@@ -22,7 +22,7 @@ const App = () => {
     canUndo: false,
     canRedo: false,
     currentVersionIndex: -1,
-    totalVersions: 0
+    totalVersions: 0,
   });
   const [isUndoing, setIsUndoing] = useState(false);
   const [isRedoing, setIsRedoing] = useState(false);
@@ -52,7 +52,6 @@ const App = () => {
       setTheme("dark");
     }
   };
-
 
   useEffect(() => {
     socket.on("userJoined", (users) => setUsers(users));
@@ -90,7 +89,6 @@ const App = () => {
           ? "redone"
           : "reverted";
       console.log(`Code ${actionText} by ${data.performer}`);
-
     });
     socket.on("undoRedoStateResponse", (response) => {
       if (response.success) setUndoRedoState(response.undoRedoState);
@@ -118,8 +116,8 @@ const App = () => {
   }, []);
 
   const joinRoom = () => {
-
-    if (!roomId || !userName) return alert("Please enter both Room Id and Your Name");
+    if (!roomId || !userName)
+      return alert("Please enter both Room Id and Your Name");
     socket.emit("join_room", { roomId, userName });
     setJoined(true);
 
@@ -137,7 +135,6 @@ const App = () => {
     } else {
       alert("Please enter both Room Id and Your Name");
     }
-
   };
 
   const leaveRoom = () => {
@@ -163,13 +160,11 @@ const App = () => {
   const handleChange = (newCode) => {
     setCode(newCode);
 
-
     if (codeChangeTimeout) clearTimeout(codeChangeTimeout);
 
     if (codeChangeTimeout) {
       clearTimeout(codeChangeTimeout);
     }
-
 
     const newTimeout = setTimeout(() => {
       socket.emit("codeChange", { roomId, code: newCode });
@@ -261,6 +256,9 @@ const App = () => {
   return (
     <div className="editor-container">
       <div className="sidebar">
+        <button onClick={toggleTheme} className="theme-toggle-btn">
+          {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+        </button>
         <div className="room-info">
           <h2>Code Room: {roomId}</h2>
           <button onClick={copyRoomId}> Copy Id</button>
@@ -274,7 +272,7 @@ const App = () => {
         </ul>
         <p className="typing-indicator">{typing}</p>
         <select
-          className="language-seletor"
+          className="language-selector"
           value={language}
           onChange={handleLanguageChange}
         >
@@ -346,7 +344,7 @@ const App = () => {
           theme="vs-dark"
           options={{
             minimap: { enabled: false },
-            fontSize: 14
+            fontSize: 14,
           }}
         />
         <VideoCall

@@ -1,0 +1,4 @@
+/* ChatWindow styles are embedded in the component for the detached window */
+.chat-window-placeholder {
+  display: none;
+}

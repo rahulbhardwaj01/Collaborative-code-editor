@@ -35,9 +35,11 @@ const App = () => {
     socket.on("userJoined", (users) => {
       setUsers(users);
     });
+
     socket.on("codeUpdated", (newCode) => {
       setCode(newCode);
     });
+
     socket.on("userTyping", (user) => {
       setTyping(`${user.slice(0, 8)} is typing...`);
       setTimeout(() => {
@@ -53,7 +55,6 @@ const App = () => {
       setChatMessages((prev) => [...prev, { userName, message }]);
     });
 
-    // Version History events
     socket.on("versionAdded", (data) => {
       console.log("Version added:", data);
       setUndoRedoState(data.undoRedoState);
@@ -63,14 +64,14 @@ const App = () => {
       setCode(data.code);
       setLanguage(data.language);
       setUndoRedoState(data.undoRedoState);
-      
-      // Reset loading states
       setIsUndoing(false);
       setIsRedoing(false);
-      
-      // Show notification about the revert
-      const actionText = data.action === 'undo' ? 'undone' : 
-                        data.action === 'redo' ? 'redone' : 'reverted';
+      const actionText =
+        data.action === "undo"
+          ? "undone"
+          : data.action === "redo"
+          ? "redone"
+          : "reverted";
       console.log(`Code ${actionText} by ${data.performer}`);
     });
 
@@ -87,12 +88,12 @@ const App = () => {
 
     socket.on("error", (error) => {
       console.error("Socket error:", error);
-      // Reset loading states on error
-      if (error.type === 'undo') setIsUndoing(false);
-      if (error.type === 'redo') setIsRedoing(false);
-      if (error.type === 'checkpoint') setIsCreatingCheckpoint(false);
+      if (error.type === "undo") setIsUndoing(false);
+      if (error.type === "redo") setIsRedoing(false);
+      if (error.type === "checkpoint") setIsCreatingCheckpoint(false);
     });
 
+    // cleanup
     return () => {
       socket.off("userJoined");
       socket.off("codeUpdated");
@@ -108,7 +109,7 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const handleBeforeUnload = (event) => {
+    const handleBeforeUnload = () => {
       socket.emit("leaveRoom");
     };
 
@@ -122,8 +123,7 @@ const App = () => {
     if (roomId && userName) {
       socket.emit("join_room", { roomId, userName });
       setJoined(true);
-      
-      // Request initial undo/redo state after joining
+
       setTimeout(() => {
         socket.emit("getUndoRedoState", { roomId });
       }, 1000);
@@ -144,6 +144,7 @@ const App = () => {
     setChatMessages([]);
     setChatInput("");
   };
+
   const copyRoomId = () => {
     navigator.clipboard
       .writeText(roomId)
@@ -158,21 +159,17 @@ const App = () => {
 
   const handleChange = (newCode) => {
     setCode(newCode);
-    
-    // Clear existing timeout
+
     if (codeChangeTimeout) {
       clearTimeout(codeChangeTimeout);
     }
-    
-    // Debounce code change to avoid too many version saves
+
     const newTimeout = setTimeout(() => {
-      console.log("Emitting code change for version tracking");
       socket.emit("codeChange", { roomId, code: newCode });
-    }, 500); // 500ms delay
-    
+    }, 500);
+
     setCodeChangeTimeout(newTimeout);
-    
-    // Immediate typing notification
+
     socket.emit("typing", { roomId, userName });
   };
 
@@ -182,9 +179,7 @@ const App = () => {
     socket.emit("languageChange", { roomId, language: newLanguage });
   };
 
-  // Version History functions
   const handleUndo = () => {
-    console.log("Undo clicked, state:", undoRedoState);
     if (undoRedoState.canUndo && !isUndoing) {
       setIsUndoing(true);
       socket.emit("undo", { roomId });
@@ -192,7 +187,6 @@ const App = () => {
   };
 
   const handleRedo = () => {
-    console.log("Redo clicked, state:", undoRedoState);
     if (undoRedoState.canRedo && !isRedoing) {
       setIsRedoing(true);
       socket.emit("redo", { roomId });
@@ -206,14 +200,13 @@ const App = () => {
     }
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'z' && !e.shiftKey) {
+        if (e.key === "z" && !e.shiftKey) {
           e.preventDefault();
           handleUndo();
-        } else if ((e.key === 'y') || (e.key === 'z' && e.shiftKey)) {
+        } else if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
           e.preventDefault();
           handleRedo();
         }
@@ -221,15 +214,17 @@ const App = () => {
     };
 
     if (joined) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
     }
   }, [joined, undoRedoState]);
 
   const sendChatMessage = (e) => {
     e.preventDefault();
     if (chatInput.trim()) {
-      socket.emit("chatMessage", { roomId, userName, message: chatInput });
+      const newMessage = { userName, message: chatInput };
+      setChatMessages((prev) => [...prev, newMessage]);
+      socket.emit("chatMessage", { roomId, ...newMessage });
       setChatInput("");
     }
   };
@@ -256,6 +251,7 @@ const App = () => {
       </div>
     );
   }
+
   return (
     <div className="editor-container">
       <div className="sidebar">
@@ -284,46 +280,52 @@ const App = () => {
           Leave Room
         </button>
 
-        {/* Version History Controls */}
         <div className="version-controls">
           <h3>Version History</h3>
           <div className="version-buttons">
-            <button 
-              className={`version-btn undo-btn ${(!undoRedoState.canUndo || isUndoing) ? 'disabled' : ''} ${isUndoing ? 'loading' : ''}`}
+            <button
+              className={`version-btn undo-btn ${
+                !undoRedoState.canUndo || isUndoing ? "disabled" : ""
+              } ${isUndoing ? "loading" : ""}`}
               onClick={handleUndo}
               disabled={!undoRedoState.canUndo || isUndoing}
               title="Undo (Ctrl+Z)"
             >
-              {isUndoing ? 'Undoing...' : 'Undo'}
+              {isUndoing ? "Undoing..." : "Undo"}
             </button>
-            <button 
-              className={`version-btn redo-btn ${(!undoRedoState.canRedo || isRedoing) ? 'disabled' : ''} ${isRedoing ? 'loading' : ''}`}
+            <button
+              className={`version-btn redo-btn ${
+                !undoRedoState.canRedo || isRedoing ? "disabled" : ""
+              } ${isRedoing ? "loading" : ""}`}
               onClick={handleRedo}
               disabled={!undoRedoState.canRedo || isRedoing}
               title="Redo (Ctrl+Y)"
             >
-              {isRedoing ? 'Redoing...' : 'Redo'}
+              {isRedoing ? "Redoing..." : "Redo"}
             </button>
           </div>
           <div className="version-info">
             <span className="version-count">
-              {undoRedoState.currentVersionIndex + 1} / {undoRedoState.totalVersions}
+              {undoRedoState.currentVersionIndex + 1} /{" "}
+              {undoRedoState.totalVersions}
             </span>
           </div>
-          <button 
+          <button
             className="version-btn history-btn"
             onClick={() => setShowVersionHistory(true)}
             title="View version history"
           >
             History
           </button>
-          <button 
-            className={`version-btn checkpoint-btn ${isCreatingCheckpoint ? 'loading' : ''}`}
+          <button
+            className={`version-btn checkpoint-btn ${
+              isCreatingCheckpoint ? "loading" : ""
+            }`}
             onClick={createCheckpoint}
             disabled={isCreatingCheckpoint}
             title="Create checkpoint"
           >
-            {isCreatingCheckpoint ? 'Creating...' : 'Checkpoint'}
+            {isCreatingCheckpoint ? "Creating..." : "Checkpoint"}
           </button>
         </div>
       </div>
@@ -338,17 +340,23 @@ const App = () => {
           theme="vs-dark"
           options={{
             minimap: { enabled: false },
-            fontSize: 14,
+            fontSize: 14
           }}
         />
-        <VideoCall socket={socket} roomId={roomId} userName={userName} joined={joined} />
+        <VideoCall
+          socket={socket}
+          roomId={roomId}
+          userName={userName}
+          joined={joined}
+        />
       </div>
 
       <div className="chat-panel">
         <div className="chat-messages">
           {chatMessages.map((msg, idx) => (
             <div key={idx} className="chat-message">
-              <span className="chat-user">{msg.userName.slice(0, 8)}:</span> {msg.message}
+              <span className="chat-user">{msg.userName.slice(0, 8)}:</span>{" "}
+              {msg.message}
             </div>
           ))}
         </div>
@@ -361,12 +369,13 @@ const App = () => {
             onChange={(e) => setChatInput(e.target.value)}
             maxLength={200}
           />
-          <button type="submit" className="chat-send-btn">Send</button>
+          <button type="submit" className="chat-send-btn">
+            Send
+          </button>
         </form>
       </div>
 
-      {/* Version History Modal */}
-      <VersionHistory 
+      <VersionHistory
         socket={socket}
         roomId={roomId}
         isOpen={showVersionHistory}

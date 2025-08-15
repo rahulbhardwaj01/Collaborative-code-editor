@@ -31,10 +31,62 @@ class SocketRoutes {
         }
       });
 
+      socket.on("fileContentChange", (data) => {
+        const result = this.roomController.handleFileContentChange(socket, data);
+        if (!result.success) {
+          console.error('File content change error:', result.error);
+        }
+      });
+
       socket.on("languageChange", (data) => {
         const result = this.roomController.handleLanguageChange(socket, data);
         if (!result.success) {
           console.error('Language change error:', result.error);
+        }
+      });
+
+      socket.on("fileLanguageChange", (data) => {
+        const result = this.roomController.handleFileLanguageChange(socket, data);
+        if (!result.success) {
+          console.error('File language change error:', result.error);
+        }
+      });
+
+      socket.on("createFile", (data) => {
+        const result = this.roomController.handleCreateFile(socket, data);
+        if (!result.success) {
+          console.error('Create file error:', result.error);
+          socket.emit("error", { type: "createFile", message: result.error });
+        }
+      });
+
+      socket.on("renameFile", (data) => {
+        const result = this.roomController.handleRenameFile(socket, data);
+        if (!result.success) {
+          console.error('Rename file error:', result.error);
+          socket.emit("error", { type: "renameFile", message: result.error });
+        }
+      });
+
+      socket.on("deleteFile", (data) => {
+        const result = this.roomController.handleDeleteFile(socket, data);
+        if (!result.success) {
+          console.error('Delete file error:', result.error);
+          socket.emit("error", { type: "deleteFile", message: result.error });
+        }
+      });
+
+      socket.on("setActiveFile", (data) => {
+        const result = this.roomController.handleSetActiveFile(socket, data);
+        if (!result.success) {
+          console.error('Set active file error:', result.error);
+        }
+      });
+
+      socket.on("getRoomFiles", (data) => {
+        const result = this.roomController.handleGetRoomFiles(socket, data);
+        if (!result.success) {
+          console.error('Get room files error:', result.error);
         }
       });
 
@@ -56,6 +108,38 @@ class SocketRoutes {
         const result = this.roomController.handleChatMessage(socket, data);
         if (!result.success) {
           console.error('Chat message error:', result.error);
+        }
+      });
+
+      // Version control events
+      socket.on("undo", (data) => {
+        const result = this.roomController.handleUndo(socket, data);
+        if (!result.success) {
+          console.error('Undo error:', result.error);
+          socket.emit("error", { type: "undo", message: result.error });
+        }
+      });
+
+      socket.on("redo", (data) => {
+        const result = this.roomController.handleRedo(socket, data);
+        if (!result.success) {
+          console.error('Redo error:', result.error);
+          socket.emit("error", { type: "redo", message: result.error });
+        }
+      });
+
+      socket.on("createCheckpoint", (data) => {
+        const result = this.roomController.handleCreateCheckpoint(socket, data);
+        if (!result.success) {
+          console.error('Create checkpoint error:', result.error);
+          socket.emit("error", { type: "checkpoint", message: result.error });
+        }
+      });
+
+      socket.on("getUndoRedoState", (data) => {
+        const result = this.roomController.handleGetUndoRedoState(socket, data);
+        if (!result.success) {
+          console.error('Get undo redo state error:', result.error);
         }
       });
 

@@ -5,6 +5,7 @@ const socket = io("http://localhost:3000");
 import Editor from "@monaco-editor/react";
 import VideoCall from "./VideoCall";
 import VersionHistory from "./VersionHistory";
+import FileTabs from "./components/FileTabs";
 import { 
   detectFileType, 
   getLanguageDisplayName, 
@@ -17,15 +18,17 @@ const App = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
-  const [language, setLanguage] = useState("javascript");
-  const [code, setCode] = useState("// Welcome to the collaborative code editor\n// Start coding here...");
+  
+  // File management state
+  const [files, setFiles] = useState([]);
+  const [activeFileId, setActiveFileId] = useState(null);
+  
   const [copySuccess, setCopySuccess] = useState("");
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [showVersionHistory, setShowVersionHistory] = useState(false);
-  const [filename, setFilename] = useState("untitled.js");
   const [showAllLanguages, setShowAllLanguages] = useState(false);
   const [undoRedoState, setUndoRedoState] = useState({
     canUndo: false,
@@ -40,6 +43,26 @@ const App = () => {
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
 
   const [theme, setTheme] = useState("dark");
+
+  // Helper functions
+  const getActiveFile = () => {
+    return files.find(file => file.id === activeFileId) || null;
+  };
+
+  const getCurrentCode = () => {
+    const activeFile = getActiveFile();
+    return activeFile ? activeFile.content : '';
+  };
+
+  const getCurrentLanguage = () => {
+    const activeFile = getActiveFile();
+    return activeFile ? activeFile.language : 'javascript';
+  };
+
+  const getCurrentFilename = () => {
+    const activeFile = getActiveFile();
+    return activeFile ? activeFile.name : 'untitled.js';
+  };
 
   // Load saved theme on mount
   useEffect(() => {
@@ -64,19 +87,68 @@ const App = () => {
 
   useEffect(() => {
     socket.on("userJoined", (users) => setUsers(users));
-    socket.on("codeUpdated", (newCode) => setCode(newCode));
+    
+    // File-related events
+    socket.on("roomFilesResponse", ({ files: roomFiles, activeFileId: roomActiveFileId }) => {
+      setFiles(roomFiles);
+      setActiveFileId(roomActiveFileId);
+    });
+
+    socket.on("fileCreated", (newFile) => {
+      setFiles(prev => [...prev, newFile]);
+      setActiveFileId(newFile.id);
+    });
+
+    socket.on("fileContentUpdated", ({ fileId, content, file }) => {
+      setFiles(prev => prev.map(f => f.id === fileId ? { ...f, content, lastModified: file.lastModified } : f));
+    });
+
+    socket.on("fileLanguageUpdated", ({ fileId, language, file }) => {
+      setFiles(prev => prev.map(f => f.id === fileId ? { ...f, language, lastModified: file.lastModified } : f));
+    });
+
+    socket.on("fileRenamed", ({ fileId, newName, file }) => {
+      setFiles(prev => prev.map(f => f.id === fileId ? { ...f, name: newName, lastModified: file.lastModified } : f));
+    });
+
+    socket.on("fileDeleted", ({ fileId, activeFileId: newActiveFileId }) => {
+      setFiles(prev => prev.filter(f => f.id !== fileId));
+      setActiveFileId(newActiveFileId);
+    });
+
+    socket.on("activeFileChanged", ({ fileId, file }) => {
+      setActiveFileId(fileId);
+    });
+
+    // Legacy events for backward compatibility
+    socket.on("codeUpdated", (newCode) => {
+      if (activeFileId) {
+        setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: newCode } : f));
+      }
+    });
+
+    socket.on("languageUpdated", (newLanguage) => {
+      if (activeFileId) {
+        setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, language: newLanguage } : f));
+      }
+    });
+
     socket.on("userTyping", (user) => {
       setTyping(`${user.slice(0, 8)} is typing...`);
       setTimeout(() => setTyping(""), 3000);
     });
-    socket.on("languageUpdated", (newLanguage) => setLanguage(newLanguage));
+    
     socket.on("chatMessage", ({ userName, message }) =>
       setChatMessages((prev) => [...prev, { userName, message }])
     );
+    
     socket.on("versionAdded", (data) => setUndoRedoState(data.undoRedoState));
+    
     socket.on("codeReverted", (data) => {
-      setCode(data.code);
-      setLanguage(data.language);
+      // Update the active file with reverted code
+      if (activeFileId) {
+        setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: data.code, language: data.language } : f));
+      }
       setUndoRedoState(data.undoRedoState);
       setIsUndoing(false);
       setIsRedoing(false);
@@ -127,23 +199,15 @@ const App = () => {
   const joinRoom = () => {
     if (!roomId || !userName)
       return alert("Please enter both Room Id and Your Name");
+    
     socket.emit("join_room", { roomId, userName });
     setJoined(true);
 
+    // Request room files after joining
     setTimeout(() => {
+      socket.emit("getRoomFiles", { roomId });
       socket.emit("getUndoRedoState", { roomId });
     }, 1000);
-
-    if (roomId && userName) {
-      socket.emit("join_room", { roomId, userName });
-      setJoined(true);
-
-      setTimeout(() => {
-        socket.emit("getUndoRedoState", { roomId });
-      }, 1000);
-    } else {
-      alert("Please enter both Room Id and Your Name");
-    }
   };
 
   const leaveRoom = () => {
@@ -151,11 +215,10 @@ const App = () => {
     setJoined(false);
     setRoomId("");
     setUserName("");
-    setCode("// Welcome to the collaborative code editor\n// Start coding here...");
+    setFiles([]);
+    setActiveFileId(null);
     setUsers([]);
     setTyping("");
-    setLanguage("javascript");
-    setFilename("untitled.js");
     setShowAllLanguages(false);
     setChatMessages([]);
     setChatInput("");
@@ -168,17 +231,45 @@ const App = () => {
     });
   };
 
+  // File management functions
+  const handleCreateFile = (name) => {
+    const detectedLanguage = detectFileType(name);
+    const language = isLanguageSupported(detectedLanguage) ? detectedLanguage : 'javascript';
+    socket.emit("createFile", { roomId, name, content: '', language });
+  };
+
+  const handleRenameFile = (fileId, newName) => {
+    socket.emit("renameFile", { roomId, fileId, newName });
+    
+    // Auto-detect language from new filename
+    const detectedLanguage = detectFileType(newName);
+    if (detectedLanguage && isLanguageSupported(detectedLanguage)) {
+      const file = files.find(f => f.id === fileId);
+      if (file && file.language !== detectedLanguage) {
+        socket.emit("fileLanguageChange", { roomId, fileId, language: detectedLanguage });
+      }
+    }
+  };
+
+  const handleDeleteFile = (fileId) => {
+    socket.emit("deleteFile", { roomId, fileId });
+  };
+
+  const handleTabClick = (fileId) => {
+    setActiveFileId(fileId);
+    socket.emit("setActiveFile", { roomId, fileId });
+  };
+
   const handleChange = (newCode) => {
-    setCode(newCode);
+    if (!activeFileId) return;
+    
+    // Update local state immediately for responsiveness
+    setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: newCode } : f));
 
     if (codeChangeTimeout) clearTimeout(codeChangeTimeout);
 
-    if (codeChangeTimeout) {
-      clearTimeout(codeChangeTimeout);
-    }
-
     const newTimeout = setTimeout(() => {
-      socket.emit("codeChange", { roomId, code: newCode });
+      socket.emit("fileContentChange", { roomId, fileId: activeFileId, content: newCode });
     }, 500);
 
     setCodeChangeTimeout(newTimeout);
@@ -189,28 +280,23 @@ const App = () => {
 
   const handleLanguageChange = (e) => {
     const newLanguage = e.target.value;
-    setLanguage(newLanguage);
-    socket.emit("languageChange", { roomId, language: newLanguage });
-  };
-
-  const handleFilenameChange = (e) => {
-    const newFilename = e.target.value;
-    setFilename(newFilename);
+    if (!activeFileId) return;
     
-    // Auto-detect language from filename
-    const detectedLanguage = detectFileType(newFilename);
-    if (detectedLanguage && detectedLanguage !== language && isLanguageSupported(detectedLanguage)) {
-      setLanguage(detectedLanguage);
-      socket.emit("languageChange", { roomId, language: detectedLanguage });
-    }
+    // Update local state immediately
+    setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, language: newLanguage } : f));
+    
+    socket.emit("fileLanguageChange", { roomId, fileId: activeFileId, language: newLanguage });
   };
 
+  const handleFilenameChange = (newName) => {
+    if (!activeFileId) return;
+    
+    handleRenameFile(activeFileId, newName);
+  };
+
+  // Legacy handlers for backward compatibility
   const handleManualLanguageChange = (e) => {
-    const newLanguage = e.target.value;
-    setLanguage(newLanguage);
-    socket.emit("languageChange", { roomId, language: newLanguage });
-    
-    // Don't update filename automatically to avoid conflicts
+    handleLanguageChange(e);
   };
 
   const handleUndo = useCallback(() => {
@@ -304,60 +390,59 @@ const App = () => {
         <p className="typing-indicator">{typing}</p>
         
         <div className="file-controls">
-          <h3>File & Language</h3>
-          <div className="filename-input-group">
-            <label htmlFor="filename">Filename:</label>
-            <input
-              id="filename"
-              type="text"
-              className="filename-input"
-              value={filename}
-              onChange={handleFilenameChange}
-              placeholder="e.g., main.js, script.py"
-            />
-          </div>
-          
-          <div className="language-selector-group">
-            <label htmlFor="language">Language:</label>
-            <select
-              id="language"
-              className="language-selector"
-              value={language}
-              onChange={handleManualLanguageChange}
-            >
-              <optgroup label="Popular Languages">
-                {getPopularLanguages().map((lang) => (
-                  <option key={lang.id} value={lang.id}>
-                    {lang.name}
-                  </option>
-                ))}
-              </optgroup>
-              {showAllLanguages && (
-                <optgroup label="All Languages">
-                  {getAllSupportedLanguages()
-                    .filter(lang => !getPopularLanguages().some(popular => popular.id === lang.id))
-                    .map((lang) => (
+          <h3>Current File</h3>
+          {files.length > 0 && getCurrentFilename() ? (
+            <div className="current-file-info">
+              <div className="filename-display">
+                <strong>{getCurrentFilename()}</strong>
+              </div>
+              <div className="language-selector-group">
+                <label htmlFor="language">Language:</label>
+                <select
+                  id="language"
+                  className="language-selector"
+                  value={getCurrentLanguage()}
+                  onChange={handleManualLanguageChange}
+                >
+                  <optgroup label="Popular Languages">
+                    {getPopularLanguages().map((lang) => (
                       <option key={lang.id} value={lang.id}>
                         {lang.name}
                       </option>
                     ))}
-                </optgroup>
-              )}
-            </select>
-            <button 
-              type="button"
-              className="show-all-languages-btn"
-              onClick={() => setShowAllLanguages(!showAllLanguages)}
-            >
-              {showAllLanguages ? "Show Less" : "Show All"}
-            </button>
-          </div>
-          
-          <div className="language-info">
-            <small>
-              Current: <strong>{getLanguageDisplayName(language)}</strong>
-            </small>
-          </div>
+                  </optgroup>
+                  {showAllLanguages && (
+                    <optgroup label="All Languages">
+                      {getAllSupportedLanguages()
+                        .filter(lang => !getPopularLanguages().some(popular => popular.id === lang.id))
+                        .map((lang) => (
+                          <option key={lang.id} value={lang.id}>
+                            {lang.name}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                </select>
+                <button 
+                  type="button"
+                  className="show-all-languages-btn"
+                  onClick={() => setShowAllLanguages(!showAllLanguages)}
+                >
+                  {showAllLanguages ? "Show Less" : "Show All"}
+                </button>
+              </div>
+              
+              <div className="language-info">
+                <small>
+                  Current: <strong>{getLanguageDisplayName(getCurrentLanguage())}</strong>
+                </small>
+              </div>
+            </div>
+          ) : (
+            <div className="loading-files">
+              <p>Loading files...</p>
+            </div>
+          )}
         </div>
         <button className="leave-button" onClick={leaveRoom}>
           Leave Room
@@ -414,18 +499,35 @@ const App = () => {
       </div>
 
       <div className="editor-wrapper">
-        <Editor
-          height={"100%"}
-          defaultLanguage={language}
-          language={language}
-          value={code}
-          onChange={handleChange}
-          theme="vs-dark"
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-          }}
+        <FileTabs
+          files={files}
+          activeFileId={activeFileId}
+          onTabClick={handleTabClick}
+          onCreateFile={handleCreateFile}
+          onRenameFile={handleRenameFile}
+          onDeleteFile={handleDeleteFile}
         />
+        {files.length > 0 && activeFileId ? (
+          <Editor
+            height={"calc(100% - 40px)"}
+            defaultLanguage={getCurrentLanguage()}
+            language={getCurrentLanguage()}
+            value={getCurrentCode()}
+            onChange={handleChange}
+            theme={theme === "dark" ? "vs-dark" : "vs-light"}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 14,
+            }}
+          />
+        ) : (
+          <div className="editor-placeholder">
+            <div className="placeholder-content">
+              <h3>Welcome to the Collaborative Code Editor</h3>
+              <p>Loading files or create a new file to start coding...</p>
+            </div>
+          </div>
+        )}
         <VideoCall
           socket={socket}
           roomId={roomId}

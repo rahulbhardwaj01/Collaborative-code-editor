@@ -1,67 +1,11 @@
-/* ===================================== */
-/* 🌗 Theme Variables                   */
-/* ===================================== */
-:root {
-  /* Light mode (default) */
-  --vh-modal-bg-overlay: rgba(0, 0, 0, 0.5);
-  --vh-content-bg: #ffffff;
-  --vh-header-bg: #f8f9fa;
-  --vh-border-color: #e1e5e9;
-  --vh-text-primary: #2c3e50;
-  --vh-text-secondary: #6c757d;
-  --vh-btn-bg: #ffffff;
-  --vh-btn-border: #dee2e6;
-  --vh-btn-hover-bg: #e9ecef;
-  --vh-btn-hover-border: #adb5bd;
-  --vh-version-type-bg: #e9ecef;
-  --vh-version-type-color: #495057;
-  --vh-view-hover-bg: #e3f2fd;
-  --vh-view-hover-border: #2196f3;
-  --vh-view-hover-color: #1976d2;
-  --vh-revert-hover-bg: #fff3e0;
-  --vh-revert-hover-border: #ff9800;
-  --vh-revert-hover-color: #f57c00;
-  --vh-refresh-bg: #28a745;
-  --vh-refresh-hover-bg: #218838;
-  --vh-refresh-hover-border: #1e7e34;
-  --vh-code-bg: #f8f9fa;
-}
-
-.dark-mode {
-  /* Dark mode overrides */
-  --vh-content-bg: #1e1f21;
-  --vh-header-bg: #2a2b2d;
-  --vh-border-color: #3a3b3d;
-  --vh-text-primary: #e9ecef;
-  --vh-text-secondary: #adb5bd;
-  --vh-btn-bg: #2a2b2d;
-  --vh-btn-border: #444;
-  --vh-btn-hover-bg: #3a3b3d;
-  --vh-btn-hover-border: #666;
-  --vh-version-type-bg: #3a3b3d;
-  --vh-version-type-color: #ddd;
-  --vh-view-hover-bg: #2b3a4a;
-  --vh-view-hover-border: #4da3ff;
-  --vh-view-hover-color: #80c6ff;
-  --vh-revert-hover-bg: #4a3b2b;
-  --vh-revert-hover-border: #ffa94d;
-  --vh-revert-hover-color: #ffc078;
-  --vh-refresh-bg: #28a745; /* Keep same for brand consistency */
-  --vh-refresh-hover-bg: #218838;
-  --vh-refresh-hover-border: #1e7e34;
-  --vh-code-bg: #2a2b2d;
-}
-
-/* ===================================== */
-/* Modal Wrapper                         */
-/* ===================================== */
+/* Version History Modal Styles */
 .version-history-modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: var(--vh-modal-bg-overlay);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -69,7 +13,7 @@
 }
 
 .version-history-content {
-  background: var(--vh-content-bg);
+  background: white;
   border-radius: 8px;
   width: 90%;
   max-width: 600px;
@@ -80,22 +24,19 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
-/* ===================================== */
-/* Header                                */
-/* ===================================== */
 .version-history-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid var(--vh-border-color);
-  background: var(--vh-header-bg);
+  border-bottom: 1px solid #e1e5e9;
+  background: #f8f9fa;
   border-radius: 8px 8px 0 0;
 }
 
 .version-history-header h3 {
   margin: 0;
-  color: var(--vh-text-primary);
+  color: #2c3e50;
   font-size: 1.2rem;
 }
 
@@ -104,7 +45,7 @@
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: var(--vh-text-secondary);
+  color: #6c757d;
   padding: 0;
   width: 30px;
   height: 30px;
@@ -116,28 +57,26 @@
 }
 
 .close-button:hover {
-  background-color: var(--vh-btn-hover-bg);
-  color: var(--vh-text-primary);
+  background-color: #e9ecef;
+  color: #495057;
 }
 
-/* ===================================== */
-/* Undo/Redo Controls                    */
-/* ===================================== */
+/* Undo/Redo Controls */
 .undo-redo-controls {
   display: flex;
   gap: 10px;
   padding: 15px 20px;
-  border-bottom: 1px solid var(--vh-border-color);
-  background: var(--vh-header-bg);
+  border-bottom: 1px solid #e1e5e9;
+  background: #f8f9fa;
   align-items: center;
 }
 
 .undo-button,
 .redo-button {
   padding: 8px 16px;
-  border: 1px solid var(--vh-btn-border);
+  border: 1px solid #dee2e6;
   border-radius: 4px;
-  background: var(--vh-btn-bg);
+  background: white;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s;
@@ -148,27 +87,25 @@
 
 .undo-button:hover:not(.disabled),
 .redo-button:hover:not(.disabled) {
-  background: var(--vh-btn-hover-bg);
-  border-color: var(--vh-btn-hover-border);
+  background: #e9ecef;
+  border-color: #adb5bd;
 }
 
 .undo-button.disabled,
 .redo-button.disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: var(--vh-header-bg);
+  background: #f8f9fa;
 }
 
 .version-info {
   margin-left: auto;
   font-size: 14px;
-  color: var(--vh-text-secondary);
+  color: #6c757d;
   font-weight: 500;
 }
 
-/* ===================================== */
-/* Version List                          */
-/* ===================================== */
+/* Version List */
 .version-list {
   flex: 1;
   overflow-y: auto;
@@ -176,11 +113,11 @@
 }
 
 .version-item {
-  border: 1px solid var(--vh-border-color);
+  border: 1px solid #e1e5e9;
   border-radius: 6px;
   margin-bottom: 10px;
   padding: 15px;
-  background: var(--vh-content-bg);
+  background: white;
   transition: box-shadow 0.2s;
 }
 
@@ -200,6 +137,10 @@
   min-width: 24px;
 }
 
+.version-info {
+  flex: 1;
+}
+
 .version-meta {
   display: flex;
   gap: 10px;
@@ -209,21 +150,21 @@
 
 .version-user {
   font-weight: 600;
-  color: var(--vh-text-primary);
+  color: #2c3e50;
   font-size: 14px;
 }
 
 .version-type {
-  background: var(--vh-version-type-bg);
+  background: #e9ecef;
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 12px;
-  color: var(--vh-version-type-color);
+  color: #495057;
 }
 
 .version-timestamp {
   font-size: 12px;
-  color: var(--vh-text-secondary);
+  color: #6c757d;
 }
 
 .version-details {
@@ -231,7 +172,7 @@
   gap: 15px;
   margin-bottom: 10px;
   font-size: 13px;
-  color: var(--vh-text-secondary);
+  color: #6c757d;
 }
 
 .code-length::before {
@@ -250,53 +191,49 @@
 .view-button,
 .revert-button {
   padding: 6px 12px;
-  border: 1px solid var(--vh-btn-border);
+  border: 1px solid #dee2e6;
   border-radius: 4px;
-  background: var(--vh-btn-bg);
+  background: white;
   cursor: pointer;
   font-size: 12px;
   transition: all 0.2s;
 }
 
 .view-button:hover {
-  background: var(--vh-view-hover-bg);
-  border-color: var(--vh-view-hover-border);
-  color: var(--vh-view-hover-color);
+  background: #e3f2fd;
+  border-color: #2196f3;
+  color: #1976d2;
 }
 
 .revert-button:hover {
-  background: var(--vh-revert-hover-bg);
-  border-color: var(--vh-revert-hover-border);
-  color: var(--vh-revert-hover-color);
+  background: #fff3e0;
+  border-color: #ff9800;
+  color: #f57c00;
 }
 
-/* ===================================== */
-/* Loading and Empty States              */
-/* ===================================== */
+/* Loading and Empty States */
 .loading,
 .no-versions {
   text-align: center;
   padding: 40px 20px;
-  color: var(--vh-text-secondary);
+  color: #6c757d;
   font-style: italic;
 }
 
-/* ===================================== */
-/* Footer                                */
-/* ===================================== */
+/* Footer */
 .version-history-footer {
   padding: 15px 20px;
-  border-top: 1px solid var(--vh-border-color);
-  background: var(--vh-header-bg);
+  border-top: 1px solid #e1e5e9;
+  background: #f8f9fa;
   display: flex;
   justify-content: center;
 }
 
 .refresh-button {
   padding: 8px 16px;
-  border: 1px solid var(--vh-refresh-bg);
+  border: 1px solid #28a745;
   border-radius: 4px;
-  background: var(--vh-refresh-bg);
+  background: #28a745;
   color: white;
   cursor: pointer;
   font-size: 14px;
@@ -307,13 +244,11 @@
 }
 
 .refresh-button:hover {
-  background: var(--vh-refresh-hover-bg);
-  border-color: var(--vh-refresh-hover-border);
+  background: #218838;
+  border-color: #1e7e34;
 }
 
-/* ===================================== */
-/* Version Details Modal                 */
-/* ===================================== */
+/* Version Details Modal */
 .version-details-modal {
   position: fixed;
   top: 0;
@@ -328,7 +263,7 @@
 }
 
 .version-details-content {
-  background: var(--vh-content-bg);
+  background: white;
   border-radius: 8px;
   width: 90%;
   max-width: 500px;
@@ -342,14 +277,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid var(--vh-border-color);
-  background: var(--vh-header-bg);
+  border-bottom: 1px solid #e1e5e9;
+  background: #f8f9fa;
   border-radius: 8px 8px 0 0;
 }
 
 .version-details-header h4 {
   margin: 0;
-  color: var(--vh-text-primary);
+  color: #2c3e50;
 }
 
 .close-details-button {
@@ -357,7 +292,7 @@
   border: none;
   font-size: 20px;
   cursor: pointer;
-  color: var(--vh-text-secondary);
+  color: #6c757d;
   padding: 0;
   width: 25px;
   height: 25px;
@@ -369,7 +304,7 @@
 }
 
 .close-details-button:hover {
-  background-color: var(--vh-btn-hover-bg);
+  background-color: #e9ecef;
 }
 
 .version-details-body {
@@ -382,7 +317,7 @@
 }
 
 .detail-row strong {
-  color: var(--vh-text-primary);
+  color: #2c3e50;
   display: inline-block;
   min-width: 80px;
 }
@@ -392,8 +327,8 @@
 }
 
 .code-content {
-  background: var(--vh-code-bg);
-  border: 1px solid var(--vh-border-color);
+  background: #f8f9fa;
+  border: 1px solid #e1e5e9;
   border-radius: 4px;
   padding: 15px;
   margin-top: 10px;
@@ -405,9 +340,7 @@
   overflow-y: auto;
 }
 
-/* ===================================== */
-/* Responsive                            */
-/* ===================================== */
+/* Responsive Design */
 @media (max-width: 768px) {
   .version-history-content {
     width: 95%;

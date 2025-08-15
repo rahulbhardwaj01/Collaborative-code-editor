@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import io from "socket.io-client";
 const socket = io("http://localhost:3000");
@@ -135,7 +135,7 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const handleBeforeUnload = (event) => {
+    const handleBeforeUnload = () => {
       socket.emit("leaveRoom");
     };
 
@@ -210,21 +210,21 @@ const App = () => {
   };
 
   // Version History functions
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     console.log("Undo clicked, state:", undoRedoState);
     if (undoRedoState.canUndo && !isUndoing) {
       setIsUndoing(true);
       socket.emit("undo", { roomId });
     }
-  };
+  }, [undoRedoState, isUndoing, roomId]);
 
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     console.log("Redo clicked, state:", undoRedoState);
     if (undoRedoState.canRedo && !isRedoing) {
       setIsRedoing(true);
       socket.emit("redo", { roomId });
     }
-  };
+  }, [undoRedoState, isRedoing, roomId]);
 
   const createCheckpoint = () => {
     if (!isCreatingCheckpoint) {
@@ -251,7 +251,7 @@ const App = () => {
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
-  }, [joined, undoRedoState]);
+  }, [joined, handleUndo, handleRedo]);
 
   const sendChatMessage = (e) => {
     e.preventDefault();

@@ -28,7 +28,6 @@ const App = () => {
   const [isRedoing, setIsRedoing] = useState(false);
   const [isCreatingCheckpoint, setIsCreatingCheckpoint] = useState(false);
 
-  // Debounce for code changes
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
   const [theme, setTheme] = useState("dark");
 
@@ -41,7 +40,6 @@ const App = () => {
     }
   }, []);
 
-  // Handle theme change
   const toggleTheme = () => {
     if (theme === "dark") {
       document.body.classList.add("light-mode");
@@ -55,118 +53,66 @@ const App = () => {
   };
 
   useEffect(() => {
-    socket.on("userJoined", (users) => {
-      setUsers(users);
-    });
-
-    socket.on("codeUpdated", (newCode) => {
-      setCode(newCode);
-    });
-
+    socket.on("userJoined", (users) => setUsers(users));
+    socket.on("codeUpdated", (newCode) => setCode(newCode));
     socket.on("userTyping", (user) => {
       setTyping(`${user.slice(0, 8)} is typing...`);
-      setTimeout(() => {
-        setTyping("");
-      }, 3000);
+      setTimeout(() => setTyping(""), 3000);
     });
-
-    socket.on("languageUpdated", (newLanguage) => {
-      setLanguage(newLanguage);
-    });
-
-    socket.on("chatMessage", ({ userName, message }) => {
-      setChatMessages((prev) => [...prev, { userName, message }]);
-    });
-
-    socket.on("versionAdded", (data) => {
-      console.log("Version added:", data);
-      setUndoRedoState(data.undoRedoState);
-    });
-
+    socket.on("languageUpdated", (newLanguage) => setLanguage(newLanguage));
+    socket.on("chatMessage", ({ userName, message }) =>
+      setChatMessages((prev) => [...prev, { userName, message }])
+    );
+    socket.on("versionAdded", (data) => setUndoRedoState(data.undoRedoState));
     socket.on("codeReverted", (data) => {
       setCode(data.code);
       setLanguage(data.language);
       setUndoRedoState(data.undoRedoState);
-
-      // Reset loading states
       setIsUndoing(false);
       setIsRedoing(false);
-
-      // Show notification about the revert
-
-      setIsUndoing(false);
-      setIsRedoing(false);
-
-      const actionText =
-        data.action === "undo"
-          ? "undone"
-          : data.action === "redo"
-          ? "redone"
-          : "reverted";
-      console.log(`Code ${actionText} by ${data.performer}`);
+      console.log(
+        `Code ${
+          data.action === "undo"
+            ? "undone"
+            : data.action === "redo"
+            ? "redone"
+            : "reverted"
+        } by ${data.performer}`
+      );
     });
-
     socket.on("undoRedoStateResponse", (response) => {
-      if (response.success) {
-        setUndoRedoState(response.undoRedoState);
-      }
+      if (response.success) setUndoRedoState(response.undoRedoState);
     });
-
     socket.on("checkpointCreated", (data) => {
       setIsCreatingCheckpoint(false);
       console.log(`Checkpoint created by ${data.performer}`);
     });
-
     socket.on("error", (error) => {
       console.error("Socket error:", error);
-
-      // Reset loading states on error
-
       if (error.type === "undo") setIsUndoing(false);
       if (error.type === "redo") setIsRedoing(false);
       if (error.type === "checkpoint") setIsCreatingCheckpoint(false);
     });
 
-    // cleanup
     return () => {
-      socket.off("userJoined");
-      socket.off("codeUpdated");
-      socket.off("userTyping");
-      socket.off("languageUpdated");
-      socket.off("chatMessage");
-      socket.off("versionAdded");
-      socket.off("codeReverted");
-      socket.off("undoRedoStateResponse");
-      socket.off("checkpointCreated");
-      socket.off("error");
+      socket.off();
     };
   }, []);
 
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      socket.emit("leaveRoom");
-    };
-
+    const handleBeforeUnload = () => socket.emit("leaveRoom");
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
   const joinRoom = () => {
-    if (roomId && userName) {
-      socket.emit("join_room", { roomId, userName });
-      setJoined(true);
+    if (!roomId || !userName) return alert("Please enter both Room Id and Your Name");
+    socket.emit("join_room", { roomId, userName });
+    setJoined(true);
 
-
-      // Request initial undo/redo state after joining
-
-      setTimeout(() => {
-        socket.emit("getUndoRedoState", { roomId });
-      }, 1000);
-    } else {
-      alert("Please enter both Room Id and Your Name");
-    }
+    setTimeout(() => {
+      socket.emit("getUndoRedoState", { roomId });
+    }, 1000);
   };
 
   const leaveRoom = () => {
@@ -183,45 +129,24 @@ const App = () => {
   };
 
   const copyRoomId = () => {
-    navigator.clipboard
-      .writeText(roomId)
-      .then(() => {
-        setCopySuccess("Copied!");
-        setTimeout(() => setCopySuccess(""), 2000);
-      })
-      .catch((err) => {
-        console.error("Failed to copy: ", err);
-      });
+    navigator.clipboard.writeText(roomId).then(() => {
+      setCopySuccess("Copied!");
+      setTimeout(() => setCopySuccess(""), 2000);
+    });
   };
 
   const handleChange = (newCode) => {
     setCode(newCode);
 
-
-    // Clear existing timeout
-
-
-    if (codeChangeTimeout) {
-      clearTimeout(codeChangeTimeout);
-    }
-
-
-    // Debounce code change to avoid too many version saves
-
+    if (codeChangeTimeout) clearTimeout(codeChangeTimeout);
 
     const newTimeout = setTimeout(() => {
       socket.emit("codeChange", { roomId, code: newCode });
-
-    }, 500); // 500ms delay
-
-    setCodeChangeTimeout(newTimeout);
-
-    // Immediate typing notification
-
     }, 500);
 
     setCodeChangeTimeout(newTimeout);
 
+    // typing notification
     socket.emit("typing", { roomId, userName });
   };
 
@@ -231,25 +156,14 @@ const App = () => {
     socket.emit("languageChange", { roomId, language: newLanguage });
   };
 
-<<<<<<< HEAD
-  // Version History functions
   const handleUndo = useCallback(() => {
-    console.log("Undo clicked, state:", undoRedoState);
-=======
-  const handleUndo = () => {
->>>>>>> 5fd9706fe1860af2cb320ebb253bfbdf4ef36511
     if (undoRedoState.canUndo && !isUndoing) {
       setIsUndoing(true);
       socket.emit("undo", { roomId });
     }
   }, [undoRedoState, isUndoing, roomId]);
 
-<<<<<<< HEAD
   const handleRedo = useCallback(() => {
-    console.log("Redo clicked, state:", undoRedoState);
-=======
-  const handleRedo = () => {
->>>>>>> 5fd9706fe1860af2cb320ebb253bfbdf4ef36511
     if (undoRedoState.canRedo && !isRedoing) {
       setIsRedoing(true);
       socket.emit("redo", { roomId });
@@ -275,7 +189,6 @@ const App = () => {
         }
       }
     };
-
     if (joined) {
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
@@ -284,12 +197,11 @@ const App = () => {
 
   const sendChatMessage = (e) => {
     e.preventDefault();
-    if (chatInput.trim()) {
-      const newMessage = { userName, message: chatInput };
-      setChatMessages((prev) => [...prev, newMessage]);
-      socket.emit("chatMessage", { roomId, ...newMessage });
-      setChatInput("");
-    }
+    if (!chatInput.trim()) return;
+    const newMessage = { userName, message: chatInput };
+    setChatMessages((prev) => [...prev, newMessage]);
+    socket.emit("chatMessage", { roomId, ...newMessage });
+    setChatInput("");
   };
 
   if (!joined) {

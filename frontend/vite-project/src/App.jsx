@@ -58,9 +58,11 @@ const App = () => {
     socket.on("userJoined", (users) => {
       setUsers(users);
     });
+
     socket.on("codeUpdated", (newCode) => {
       setCode(newCode);
     });
+
     socket.on("userTyping", (user) => {
       setTyping(`${user.slice(0, 8)} is typing...`);
       setTimeout(() => {
@@ -76,7 +78,6 @@ const App = () => {
       setChatMessages((prev) => [...prev, { userName, message }]);
     });
 
-    // Version History events
     socket.on("versionAdded", (data) => {
       console.log("Version added:", data);
       setUndoRedoState(data.undoRedoState);
@@ -92,6 +93,10 @@ const App = () => {
       setIsRedoing(false);
 
       // Show notification about the revert
+
+      setIsUndoing(false);
+      setIsRedoing(false);
+
       const actionText =
         data.action === "undo"
           ? "undone"
@@ -114,12 +119,15 @@ const App = () => {
 
     socket.on("error", (error) => {
       console.error("Socket error:", error);
+
       // Reset loading states on error
+
       if (error.type === "undo") setIsUndoing(false);
       if (error.type === "redo") setIsRedoing(false);
       if (error.type === "checkpoint") setIsCreatingCheckpoint(false);
     });
 
+    // cleanup
     return () => {
       socket.off("userJoined");
       socket.off("codeUpdated");
@@ -135,7 +143,7 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const handleBeforeUnload = (event) => {
+    const handleBeforeUnload = () => {
       socket.emit("leaveRoom");
     };
 
@@ -150,7 +158,9 @@ const App = () => {
       socket.emit("join_room", { roomId, userName });
       setJoined(true);
 
+
       // Request initial undo/redo state after joining
+
       setTimeout(() => {
         socket.emit("getUndoRedoState", { roomId });
       }, 1000);
@@ -171,6 +181,7 @@ const App = () => {
     setChatMessages([]);
     setChatInput("");
   };
+
   const copyRoomId = () => {
     navigator.clipboard
       .writeText(roomId)
@@ -186,20 +197,31 @@ const App = () => {
   const handleChange = (newCode) => {
     setCode(newCode);
 
+
     // Clear existing timeout
+
+
     if (codeChangeTimeout) {
       clearTimeout(codeChangeTimeout);
     }
 
+
     // Debounce code change to avoid too many version saves
+
+
     const newTimeout = setTimeout(() => {
-      console.log("Emitting code change for version tracking");
       socket.emit("codeChange", { roomId, code: newCode });
+
     }, 500); // 500ms delay
 
     setCodeChangeTimeout(newTimeout);
 
     // Immediate typing notification
+
+    }, 500);
+
+    setCodeChangeTimeout(newTimeout);
+
     socket.emit("typing", { roomId, userName });
   };
 
@@ -209,9 +231,7 @@ const App = () => {
     socket.emit("languageChange", { roomId, language: newLanguage });
   };
 
-  // Version History functions
   const handleUndo = () => {
-    console.log("Undo clicked, state:", undoRedoState);
     if (undoRedoState.canUndo && !isUndoing) {
       setIsUndoing(true);
       socket.emit("undo", { roomId });
@@ -219,7 +239,6 @@ const App = () => {
   };
 
   const handleRedo = () => {
-    console.log("Redo clicked, state:", undoRedoState);
     if (undoRedoState.canRedo && !isRedoing) {
       setIsRedoing(true);
       socket.emit("redo", { roomId });
@@ -233,7 +252,6 @@ const App = () => {
     }
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.ctrlKey || e.metaKey) {
@@ -256,7 +274,9 @@ const App = () => {
   const sendChatMessage = (e) => {
     e.preventDefault();
     if (chatInput.trim()) {
-      socket.emit("chatMessage", { roomId, userName, message: chatInput });
+      const newMessage = { userName, message: chatInput };
+      setChatMessages((prev) => [...prev, newMessage]);
+      socket.emit("chatMessage", { roomId, ...newMessage });
       setChatInput("");
     }
   };
@@ -283,6 +303,7 @@ const App = () => {
       </div>
     );
   }
+
   return (
     <div className="editor-container">
       <div className="sidebar">
@@ -314,7 +335,6 @@ const App = () => {
           Leave Room
         </button>
 
-        {/* Version History Controls */}
         <div className="version-controls">
           <h3>Version History</h3>
           <div className="version-buttons">
@@ -375,7 +395,7 @@ const App = () => {
           theme="vs-dark"
           options={{
             minimap: { enabled: false },
-            fontSize: 14,
+            fontSize: 14
           }}
         />
         <VideoCall
@@ -410,7 +430,9 @@ const App = () => {
         </form>
       </div>
 
+
       {/* Version History Modal */}
+
       <VersionHistory
         socket={socket}
         roomId={roomId}

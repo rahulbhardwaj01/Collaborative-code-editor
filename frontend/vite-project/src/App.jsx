@@ -4,6 +4,7 @@ import io from "socket.io-client";
 const socket = io("http://localhost:3000");
 import Editor from "@monaco-editor/react";
 import VideoCall from "./VideoCall";
+import VersionHistory from "./VersionHistory";
 
 const App = () => {
   const [joined, setJoined] = useState(false);
@@ -16,6 +17,19 @@ const App = () => {
   const [typing, setTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [undoRedoState, setUndoRedoState] = useState({
+    canUndo: false,
+    canRedo: false,
+    currentVersionIndex: -1,
+    totalVersions: 0
+  });
+  const [isUndoing, setIsUndoing] = useState(false);
+  const [isRedoing, setIsRedoing] = useState(false);
+  const [isCreatingCheckpoint, setIsCreatingCheckpoint] = useState(false);
+
+  // Debounce for code changes
+  const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
 
   useEffect(() => {
     socket.on("userJoined", (users) => {
@@ -39,12 +53,57 @@ const App = () => {
       setChatMessages((prev) => [...prev, { userName, message }]);
     });
 
+    // Version History events
+    socket.on("versionAdded", (data) => {
+      console.log("Version added:", data);
+      setUndoRedoState(data.undoRedoState);
+    });
+
+    socket.on("codeReverted", (data) => {
+      setCode(data.code);
+      setLanguage(data.language);
+      setUndoRedoState(data.undoRedoState);
+      
+      // Reset loading states
+      setIsUndoing(false);
+      setIsRedoing(false);
+      
+      // Show notification about the revert
+      const actionText = data.action === 'undo' ? 'undone' : 
+                        data.action === 'redo' ? 'redone' : 'reverted';
+      console.log(`Code ${actionText} by ${data.performer}`);
+    });
+
+    socket.on("undoRedoStateResponse", (response) => {
+      if (response.success) {
+        setUndoRedoState(response.undoRedoState);
+      }
+    });
+
+    socket.on("checkpointCreated", (data) => {
+      setIsCreatingCheckpoint(false);
+      console.log(`Checkpoint created by ${data.performer}`);
+    });
+
+    socket.on("error", (error) => {
+      console.error("Socket error:", error);
+      // Reset loading states on error
+      if (error.type === 'undo') setIsUndoing(false);
+      if (error.type === 'redo') setIsRedoing(false);
+      if (error.type === 'checkpoint') setIsCreatingCheckpoint(false);
+    });
+
     return () => {
       socket.off("userJoined");
       socket.off("codeUpdated");
       socket.off("userTyping");
       socket.off("languageUpdated");
       socket.off("chatMessage");
+      socket.off("versionAdded");
+      socket.off("codeReverted");
+      socket.off("undoRedoStateResponse");
+      socket.off("checkpointCreated");
+      socket.off("error");
     };
   }, []);
 
@@ -63,6 +122,11 @@ const App = () => {
     if (roomId && userName) {
       socket.emit("join_room", { roomId, userName });
       setJoined(true);
+      
+      // Request initial undo/redo state after joining
+      setTimeout(() => {
+        socket.emit("getUndoRedoState", { roomId });
+      }, 1000);
     } else {
       alert("Please enter both Room Id and Your Name");
     }
@@ -94,7 +158,21 @@ const App = () => {
 
   const handleChange = (newCode) => {
     setCode(newCode);
-    socket.emit("codeChange", { roomId, code: newCode });
+    
+    // Clear existing timeout
+    if (codeChangeTimeout) {
+      clearTimeout(codeChangeTimeout);
+    }
+    
+    // Debounce code change to avoid too many version saves
+    const newTimeout = setTimeout(() => {
+      console.log("Emitting code change for version tracking");
+      socket.emit("codeChange", { roomId, code: newCode });
+    }, 500); // 500ms delay
+    
+    setCodeChangeTimeout(newTimeout);
+    
+    // Immediate typing notification
     socket.emit("typing", { roomId, userName });
   };
 
@@ -103,6 +181,50 @@ const App = () => {
     setLanguage(newLanguage);
     socket.emit("languageChange", { roomId, language: newLanguage });
   };
+
+  // Version History functions
+  const handleUndo = () => {
+    console.log("Undo clicked, state:", undoRedoState);
+    if (undoRedoState.canUndo && !isUndoing) {
+      setIsUndoing(true);
+      socket.emit("undo", { roomId });
+    }
+  };
+
+  const handleRedo = () => {
+    console.log("Redo clicked, state:", undoRedoState);
+    if (undoRedoState.canRedo && !isRedoing) {
+      setIsRedoing(true);
+      socket.emit("redo", { roomId });
+    }
+  };
+
+  const createCheckpoint = () => {
+    if (!isCreatingCheckpoint) {
+      setIsCreatingCheckpoint(true);
+      socket.emit("createCheckpoint", { roomId, code, language });
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          handleUndo();
+        } else if ((e.key === 'y') || (e.key === 'z' && e.shiftKey)) {
+          e.preventDefault();
+          handleRedo();
+        }
+      }
+    };
+
+    if (joined) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [joined, undoRedoState]);
 
   const sendChatMessage = (e) => {
     e.preventDefault();
@@ -161,6 +283,49 @@ const App = () => {
         <button className="leave-button" onClick={leaveRoom}>
           Leave Room
         </button>
+
+        {/* Version History Controls */}
+        <div className="version-controls">
+          <h3>Version History</h3>
+          <div className="version-buttons">
+            <button 
+              className={`version-btn undo-btn ${(!undoRedoState.canUndo || isUndoing) ? 'disabled' : ''} ${isUndoing ? 'loading' : ''}`}
+              onClick={handleUndo}
+              disabled={!undoRedoState.canUndo || isUndoing}
+              title="Undo (Ctrl+Z)"
+            >
+              {isUndoing ? 'Undoing...' : 'Undo'}
+            </button>
+            <button 
+              className={`version-btn redo-btn ${(!undoRedoState.canRedo || isRedoing) ? 'disabled' : ''} ${isRedoing ? 'loading' : ''}`}
+              onClick={handleRedo}
+              disabled={!undoRedoState.canRedo || isRedoing}
+              title="Redo (Ctrl+Y)"
+            >
+              {isRedoing ? 'Redoing...' : 'Redo'}
+            </button>
+          </div>
+          <div className="version-info">
+            <span className="version-count">
+              {undoRedoState.currentVersionIndex + 1} / {undoRedoState.totalVersions}
+            </span>
+          </div>
+          <button 
+            className="version-btn history-btn"
+            onClick={() => setShowVersionHistory(true)}
+            title="View version history"
+          >
+            History
+          </button>
+          <button 
+            className={`version-btn checkpoint-btn ${isCreatingCheckpoint ? 'loading' : ''}`}
+            onClick={createCheckpoint}
+            disabled={isCreatingCheckpoint}
+            title="Create checkpoint"
+          >
+            {isCreatingCheckpoint ? 'Creating...' : 'Checkpoint'}
+          </button>
+        </div>
       </div>
 
       <div className="editor-wrapper">
@@ -199,6 +364,14 @@ const App = () => {
           <button type="submit" className="chat-send-btn">Send</button>
         </form>
       </div>
+
+      {/* Version History Modal */}
+      <VersionHistory 
+        socket={socket}
+        roomId={roomId}
+        isOpen={showVersionHistory}
+        onClose={() => setShowVersionHistory(false)}
+      />
     </div>
   );
 };

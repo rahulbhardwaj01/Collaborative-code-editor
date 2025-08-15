@@ -222,3 +222,208 @@ button {
 .chat-send-btn:hover {
   background-color: #357abd;
 }
+
+/* Version History Controls */
+.version-controls {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.version-controls h3 {
+  color: #fff;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.version-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.version-btn {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 40px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.version-btn:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.version-btn:active:not(.disabled) {
+  transform: translateY(0);
+}
+
+.version-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.undo-btn:hover:not(.disabled) {
+  background: rgba(76, 175, 80, 0.4);
+  border-color: #4caf50;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.redo-btn:hover:not(.disabled) {
+  background: rgba(33, 150, 243, 0.4);
+  border-color: #2196f3;
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+
+.history-btn {
+  background: rgba(156, 39, 176, 0.3);
+  border-color: rgba(156, 39, 176, 0.6);
+  margin-top: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+}
+
+.history-btn:hover {
+  background: rgba(156, 39, 176, 0.5);
+  border-color: #9c27b0;
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
+}
+
+.checkpoint-btn {
+  background: rgba(255, 152, 0, 0.3);
+  border-color: rgba(255, 152, 0, 0.6);
+  margin-top: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+}
+
+.checkpoint-btn:hover {
+  background: rgba(255, 152, 0, 0.5);
+  border-color: #ff9800;
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+.version-info {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.version-count {
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.3rem 0.8rem;
+  border-radius: 16px;
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive adjustments for version controls */
+@media (max-width: 768px) {
+  .version-controls {
+    padding: 0.8rem;
+    margin-top: 1rem;
+  }
+  
+  .version-buttons {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  
+  .version-btn {
+    padding: 0.8rem;
+    font-size: 0.9rem;
+    min-height: 48px;
+  }
+  
+  .history-btn,
+  .checkpoint-btn {
+    min-height: 50px;
+    font-size: 1rem;
+  }
+}
+
+/* Additional button effects */
+.version-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+.version-btn:focus:not(.disabled) {
+  border-color: rgba(255, 255, 255, 0.8);
+}
+
+/* Loading state for buttons */
+.version-btn.loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.version-btn.loading::after {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: button-loading 1s linear infinite;
+  margin-left: 0.5rem;
+}
+
+@keyframes button-loading {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Improved sidebar styling for better button visibility */
+.sidebar {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced button icons */
+.undo-btn::before {
+  content: '↶';
+  font-size: 1.1em;
+  margin-right: 0.2rem;
+}
+
+.redo-btn::before {
+  content: '↷';
+  font-size: 1.1em;
+  margin-right: 0.2rem;
+}
+
+.history-btn::before {
+  content: '📋';
+  margin-right: 0.3rem;
+}
+
+.checkpoint-btn::before {
+  content: '📌';
+  margin-right: 0.3rem;
+}

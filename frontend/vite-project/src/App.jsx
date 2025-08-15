@@ -22,13 +22,14 @@ const App = () => {
     canUndo: false,
     canRedo: false,
     currentVersionIndex: -1,
-    totalVersions: 0,
+    totalVersions: 0
   });
   const [isUndoing, setIsUndoing] = useState(false);
   const [isRedoing, setIsRedoing] = useState(false);
   const [isCreatingCheckpoint, setIsCreatingCheckpoint] = useState(false);
 
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
+
   const [theme, setTheme] = useState("dark");
 
   // Load saved theme on mount
@@ -52,6 +53,7 @@ const App = () => {
     }
   };
 
+
   useEffect(() => {
     socket.on("userJoined", (users) => setUsers(users));
     socket.on("codeUpdated", (newCode) => setCode(newCode));
@@ -70,6 +72,7 @@ const App = () => {
       setUndoRedoState(data.undoRedoState);
       setIsUndoing(false);
       setIsRedoing(false);
+
       console.log(
         `Code ${
           data.action === "undo"
@@ -79,6 +82,15 @@ const App = () => {
             : "reverted"
         } by ${data.performer}`
       );
+
+      const actionText =
+        data.action === "undo"
+          ? "undone"
+          : data.action === "redo"
+          ? "redone"
+          : "reverted";
+      console.log(`Code ${actionText} by ${data.performer}`);
+
     });
     socket.on("undoRedoStateResponse", (response) => {
       if (response.success) setUndoRedoState(response.undoRedoState);
@@ -106,6 +118,7 @@ const App = () => {
   }, []);
 
   const joinRoom = () => {
+
     if (!roomId || !userName) return alert("Please enter both Room Id and Your Name");
     socket.emit("join_room", { roomId, userName });
     setJoined(true);
@@ -113,6 +126,18 @@ const App = () => {
     setTimeout(() => {
       socket.emit("getUndoRedoState", { roomId });
     }, 1000);
+
+    if (roomId && userName) {
+      socket.emit("join_room", { roomId, userName });
+      setJoined(true);
+
+      setTimeout(() => {
+        socket.emit("getUndoRedoState", { roomId });
+      }, 1000);
+    } else {
+      alert("Please enter both Room Id and Your Name");
+    }
+
   };
 
   const leaveRoom = () => {
@@ -138,7 +163,13 @@ const App = () => {
   const handleChange = (newCode) => {
     setCode(newCode);
 
+
     if (codeChangeTimeout) clearTimeout(codeChangeTimeout);
+
+    if (codeChangeTimeout) {
+      clearTimeout(codeChangeTimeout);
+    }
+
 
     const newTimeout = setTimeout(() => {
       socket.emit("codeChange", { roomId, code: newCode });
@@ -230,9 +261,6 @@ const App = () => {
   return (
     <div className="editor-container">
       <div className="sidebar">
-        <button onClick={toggleTheme} className="theme-toggle-btn">
-          {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
-        </button>
         <div className="room-info">
           <h2>Code Room: {roomId}</h2>
           <button onClick={copyRoomId}> Copy Id</button>
@@ -246,7 +274,7 @@ const App = () => {
         </ul>
         <p className="typing-indicator">{typing}</p>
         <select
-          className="language-selector"
+          className="language-seletor"
           value={language}
           onChange={handleLanguageChange}
         >
@@ -352,9 +380,6 @@ const App = () => {
           </button>
         </form>
       </div>
-
-
-      {/* Version History Modal */}
 
       <VersionHistory
         socket={socket}

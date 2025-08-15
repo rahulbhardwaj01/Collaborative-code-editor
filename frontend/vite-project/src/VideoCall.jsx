@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-
-import './VideoCall.css';
 import SimplePeer from "simple-peer";
+import './VideoCall.css';
 
 const VideoCall = ({ socket, roomId, userName, joined }) => {
   const [peers, setPeers] = useState([]); // [{ peerId, peer, stream, userName, cameraOn, micOn }]

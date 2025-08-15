@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import io from "socket.io-client";
 const socket = io("http://localhost:3000");
@@ -31,50 +31,66 @@ const App = () => {
     canUndo: false,
     canRedo: false,
     currentVersionIndex: -1,
-    totalVersions: 0
+    totalVersions: 0,
   });
   const [isUndoing, setIsUndoing] = useState(false);
   const [isRedoing, setIsRedoing] = useState(false);
   const [isCreatingCheckpoint, setIsCreatingCheckpoint] = useState(false);
 
-  // Debounce for code changes
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
 
+  const [theme, setTheme] = useState("dark");
+
+  // Load saved theme on mount
   useEffect(() => {
-    socket.on("userJoined", (users) => {
-      setUsers(users);
-    });
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    setTheme(savedTheme);
+    if (savedTheme === "light") {
+      document.body.classList.add("light-mode");
+    }
+  }, []);
 
-    socket.on("codeUpdated", (newCode) => {
-      setCode(newCode);
-    });
+  const toggleTheme = () => {
+    if (theme === "dark") {
+      document.body.classList.add("light-mode");
+      localStorage.setItem("theme", "light");
+      setTheme("light");
+    } else {
+      document.body.classList.remove("light-mode");
+      localStorage.setItem("theme", "dark");
+      setTheme("dark");
+    }
+  };
 
+  useEffect(() => {
+    socket.on("userJoined", (users) => setUsers(users));
+    socket.on("codeUpdated", (newCode) => setCode(newCode));
     socket.on("userTyping", (user) => {
       setTyping(`${user.slice(0, 8)} is typing...`);
-      setTimeout(() => {
-        setTyping("");
-      }, 3000);
+      setTimeout(() => setTyping(""), 3000);
     });
-
-    socket.on("languageUpdated", (newLanguage) => {
-      setLanguage(newLanguage);
-    });
-
-    socket.on("chatMessage", ({ userName, message }) => {
-      setChatMessages((prev) => [...prev, { userName, message }]);
-    });
-
-    socket.on("versionAdded", (data) => {
-      console.log("Version added:", data);
-      setUndoRedoState(data.undoRedoState);
-    });
-
+    socket.on("languageUpdated", (newLanguage) => setLanguage(newLanguage));
+    socket.on("chatMessage", ({ userName, message }) =>
+      setChatMessages((prev) => [...prev, { userName, message }])
+    );
+    socket.on("versionAdded", (data) => setUndoRedoState(data.undoRedoState));
     socket.on("codeReverted", (data) => {
       setCode(data.code);
       setLanguage(data.language);
       setUndoRedoState(data.undoRedoState);
       setIsUndoing(false);
       setIsRedoing(false);
+
+      console.log(
+        `Code ${
+          data.action === "undo"
+            ? "undone"
+            : data.action === "redo"
+            ? "redone"
+            : "reverted"
+        } by ${data.performer}`
+      );
+
       const actionText =
         data.action === "undo"
           ? "undone"
@@ -83,18 +99,13 @@ const App = () => {
           : "reverted";
       console.log(`Code ${actionText} by ${data.performer}`);
     });
-
     socket.on("undoRedoStateResponse", (response) => {
-      if (response.success) {
-        setUndoRedoState(response.undoRedoState);
-      }
+      if (response.success) setUndoRedoState(response.undoRedoState);
     });
-
     socket.on("checkpointCreated", (data) => {
       setIsCreatingCheckpoint(false);
       console.log(`Checkpoint created by ${data.performer}`);
     });
-
     socket.on("error", (error) => {
       console.error("Socket error:", error);
       if (error.type === "undo") setIsUndoing(false);
@@ -102,33 +113,27 @@ const App = () => {
       if (error.type === "checkpoint") setIsCreatingCheckpoint(false);
     });
 
-    // cleanup
     return () => {
-      socket.off("userJoined");
-      socket.off("codeUpdated");
-      socket.off("userTyping");
-      socket.off("languageUpdated");
-      socket.off("chatMessage");
-      socket.off("versionAdded");
-      socket.off("codeReverted");
-      socket.off("undoRedoStateResponse");
-      socket.off("checkpointCreated");
-      socket.off("error");
+      socket.off();
     };
   }, []);
 
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      socket.emit("leaveRoom");
-    };
-
+    const handleBeforeUnload = () => socket.emit("leaveRoom");
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
   const joinRoom = () => {
+    if (!roomId || !userName)
+      return alert("Please enter both Room Id and Your Name");
+    socket.emit("join_room", { roomId, userName });
+    setJoined(true);
+
+    setTimeout(() => {
+      socket.emit("getUndoRedoState", { roomId });
+    }, 1000);
+
     if (roomId && userName) {
       socket.emit("join_room", { roomId, userName });
       setJoined(true);
@@ -157,19 +162,16 @@ const App = () => {
   };
 
   const copyRoomId = () => {
-    navigator.clipboard
-      .writeText(roomId)
-      .then(() => {
-        setCopySuccess("Copied!");
-        setTimeout(() => setCopySuccess(""), 2000);
-      })
-      .catch((err) => {
-        console.error("Failed to copy: ", err);
-      });
+    navigator.clipboard.writeText(roomId).then(() => {
+      setCopySuccess("Copied!");
+      setTimeout(() => setCopySuccess(""), 2000);
+    });
   };
 
   const handleChange = (newCode) => {
     setCode(newCode);
+
+    if (codeChangeTimeout) clearTimeout(codeChangeTimeout);
 
     if (codeChangeTimeout) {
       clearTimeout(codeChangeTimeout);
@@ -181,6 +183,7 @@ const App = () => {
 
     setCodeChangeTimeout(newTimeout);
 
+    // typing notification
     socket.emit("typing", { roomId, userName });
   };
 
@@ -210,19 +213,19 @@ const App = () => {
     // Don't update filename automatically to avoid conflicts
   };
 
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (undoRedoState.canUndo && !isUndoing) {
       setIsUndoing(true);
       socket.emit("undo", { roomId });
     }
-  };
+  }, [undoRedoState, isUndoing, roomId]);
 
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     if (undoRedoState.canRedo && !isRedoing) {
       setIsRedoing(true);
       socket.emit("redo", { roomId });
     }
-  };
+  }, [undoRedoState, isRedoing, roomId]);
 
   const createCheckpoint = () => {
     if (!isCreatingCheckpoint) {
@@ -243,21 +246,19 @@ const App = () => {
         }
       }
     };
-
     if (joined) {
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
-  }, [joined, undoRedoState]);
+  }, [joined, handleUndo, handleRedo]);
 
   const sendChatMessage = (e) => {
     e.preventDefault();
-    if (chatInput.trim()) {
-      const newMessage = { userName, message: chatInput };
-      setChatMessages((prev) => [...prev, newMessage]);
-      socket.emit("chatMessage", { roomId, ...newMessage });
-      setChatInput("");
-    }
+    if (!chatInput.trim()) return;
+    const newMessage = { userName, message: chatInput };
+    setChatMessages((prev) => [...prev, newMessage]);
+    socket.emit("chatMessage", { roomId, ...newMessage });
+    setChatInput("");
   };
 
   if (!joined) {
@@ -286,6 +287,9 @@ const App = () => {
   return (
     <div className="editor-container">
       <div className="sidebar">
+        <button onClick={toggleTheme} className="theme-toggle-btn">
+          {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+        </button>
         <div className="room-info">
           <h2>Code Room: {roomId}</h2>
           <button onClick={copyRoomId}> Copy Id</button>
@@ -419,7 +423,7 @@ const App = () => {
           theme="vs-dark"
           options={{
             minimap: { enabled: false },
-            fontSize: 14
+            fontSize: 14,
           }}
         />
         <VideoCall

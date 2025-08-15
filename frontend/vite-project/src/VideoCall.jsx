@@ -1,4 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+
+
+import "./VideoCall.css";
+
 import SimplePeer from "simple-peer";
 import './VideoCall.css';
 
@@ -11,21 +15,25 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
   const [dragging, setDragging] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const panelRef = useRef();
-  const peersRef = useRef([]);
+  // const peersRef = useRef([]);
   const [micVolume, setMicVolume] = useState(0); // 0 to 1
 
   // Helper: update peer state
-  const updatePeerState = (peerId, updates) => {
-    setPeers((prev) => prev.map(p => p.peerId === peerId ? { ...p, ...updates } : p));
-  };
+  // const updatePeerState = (peerId, updates) => {
+  //   setPeers((prev) => prev.map(p => p.peerId === peerId ? { ...p, ...updates } : p));
+  // };
 
   // Get media stream
   const getMedia = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: cameraOn, audio: micOn });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: cameraOn,
+        audio: micOn,
+      });
       setMyStream(stream);
       return stream;
     } catch (err) {
+      console.log(err);
       setMyStream(null);
       return null;
     }
@@ -44,11 +52,22 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
     setDragging(true);
     setOffset({ x: e.clientX - panelPos.x, y: e.clientY - panelPos.y });
   };
-  const onMouseMove = (e) => {
-    if (dragging) {
-      setPanelPos({ x: e.clientX - offset.x, y: e.clientY - offset.y });
-    }
-  };
+  const onMouseMove = useCallback(
+    (e) => {
+      if (dragging) {
+        setPanelPos({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+      }
+    },
+    [dragging, offset]
+  );
+
+  useEffect(() => {
+    window.addEventListener("mousemove", onMouseMove);
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+    };
+  }, [onMouseMove]);
   const onMouseUp = () => setDragging(false);
 
   // Setup/cleanup event listeners for dragging
@@ -87,12 +106,26 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
     // Handle new user joining
     socket.on("user-joined-call", ({ userName: remoteName, socketId }) => {
       if (socketId === myPeerId) return;
-      const peer = new SimplePeer({ initiator: true, trickle: false, stream: myStream });
+      const peer = new SimplePeer({
+        initiator: true,
+        trickle: false,
+        stream: myStream,
+      });
       peer.on("signal", (signal) => {
         socket.emit("signal", { roomId, signal, to: socketId });
       });
       peer.on("stream", (stream) => {
-        setPeers((prev) => [...prev, { peerId: socketId, peer, stream, userName: remoteName, cameraOn: true, micOn: true }]);
+        setPeers((prev) => [
+          ...prev,
+          {
+            peerId: socketId,
+            peer,
+            stream,
+            userName: remoteName,
+            cameraOn: true,
+            micOn: true,
+          },
+        ]);
       });
       peerConnections[socketId] = peer;
     });
@@ -101,13 +134,27 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
     socket.on("signal", ({ signal, from }) => {
       let peer = peerConnections[from];
       if (!peer) {
-        peer = new SimplePeer({ initiator: false, trickle: false, stream: myStream });
+        peer = new SimplePeer({
+          initiator: false,
+          trickle: false,
+          stream: myStream,
+        });
         peerConnections[from] = peer;
         peer.on("signal", (signal) => {
           socket.emit("signal", { roomId, signal, to: from });
         });
         peer.on("stream", (stream) => {
-          setPeers((prev) => [...prev, { peerId: from, peer, stream, userName: "", cameraOn: true, micOn: true }]);
+          setPeers((prev) => [
+            ...prev,
+            {
+              peerId: from,
+              peer,
+              stream,
+              userName: "",
+              cameraOn: true,
+              micOn: true,
+            },
+          ]);
         });
       }
       peer.signal(signal);
@@ -180,22 +227,27 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
           autoPlay
         />
       ) : (
-        <div className="video-placeholder">{label[0] || '?'}</div>
+        <div className="video-placeholder">{label[0] || "?"}</div>
       )}
       <div className="video-label">
-        {label} {camOn ? "📷" : "🚫"} {micOn ? (
+        {label} {camOn ? "📷" : "🚫"}{" "}
+        {micOn ? (
           <>
             🎤
             {isMe && (
               <span className="mic-volume-bar">
                 <span
                   className="mic-volume-fill"
-                  style={{ width: `${Math.min(100, Math.round(micVolume * 100))}%` }}
+                  style={{
+                    width: `${Math.min(100, Math.round(micVolume * 100))}%`,
+                  }}
                 />
               </span>
             )}
           </>
-        ) : "🔇"}
+        ) : (
+          "🔇"
+        )}
       </div>
     </div>
   );
@@ -210,17 +262,25 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
         Video Call
       </div>
       <div className="video-call-controls">
-        <button onClick={toggleCamera}>{cameraOn ? "Turn Camera Off" : "Turn Camera On"}</button>
+        <button onClick={toggleCamera}>
+          {cameraOn ? "Turn Camera Off" : "Turn Camera On"}
+        </button>
         <button onClick={toggleMic}>{micOn ? "Mute" : "Unmute"}</button>
       </div>
       <div className="video-call-videos">
         {renderVideo(myStream, userName || "Me", true, cameraOn, micOn)}
         {peers.map((p) =>
-          renderVideo(p.stream, p.userName || p.peerId.slice(0, 6), false, p.cameraOn, p.micOn)
+          renderVideo(
+            p.stream,
+            p.userName || p.peerId.slice(0, 6),
+            false,
+            p.cameraOn,
+            p.micOn
+          )
         )}
       </div>
     </div>
   );
 };
 
-export default VideoCall; 
+export default VideoCall;

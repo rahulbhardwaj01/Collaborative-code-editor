@@ -28,6 +28,7 @@ const App = () => {
   const [chatInput, setChatInput] = useState("");
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [filename, setFilename] = useState("untitled.js");
+  const [pendingFilename, setPendingFilename] = useState("");
   const [showAllLanguages, setShowAllLanguages] = useState(false);
   const [undoRedoState, setUndoRedoState] = useState({
     canUndo: false,
@@ -118,6 +119,13 @@ const App = () => {
       if (error.type === "redo") setIsRedoing(false);
       if (error.type === "checkpoint") setIsCreatingCheckpoint(false);
     });
+    socket.on("filenameChanged", ({ oldFilename, newFilename, userName }) => {
+      setFilename(newFilename);
+      setChatMessages((prev) => [
+        ...prev,
+        { userName: "System", message: `Filename changed from \"${oldFilename}\" to \"${newFilename}\" by ${userName}` }
+      ]);
+    });
 
     return () => {
       socket.off();
@@ -200,15 +208,21 @@ const App = () => {
   };
 
   const handleFilenameChange = (e) => {
-    const newFilename = e.target.value;
-    setFilename(newFilename);
-    
+    setPendingFilename(e.target.value);
+  };
+
+  const saveFilenameChange = () => {
+    if (!pendingFilename || pendingFilename === filename) return;
+    const oldFilename = filename;
+    setFilename(pendingFilename);
     // Auto-detect language from filename
-    const detectedLanguage = detectFileType(newFilename);
+    const detectedLanguage = detectFileType(pendingFilename);
     if (detectedLanguage && detectedLanguage !== language && isLanguageSupported(detectedLanguage)) {
       setLanguage(detectedLanguage);
       socket.emit("languageChange", { roomId, language: detectedLanguage });
     }
+    socket.emit("filenameChange", { roomId, oldFilename, newFilename: pendingFilename, userName });
+    setPendingFilename("");
   };
 
   const handleManualLanguageChange = (e) => {
@@ -330,10 +344,11 @@ const App = () => {
                   id="filename"
                   type="text"
                   className="filename-input"
-                  value={filename}
+                  value={pendingFilename || filename}
                   onChange={handleFilenameChange}
                   placeholder="e.g., main.js, script.py"
                 />
+                <button onClick={saveFilenameChange} className="save-filename-btn">Save Filename</button>
               </div>
               
               <div className="language-selector-group">

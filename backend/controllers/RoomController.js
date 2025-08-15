@@ -3,6 +3,23 @@ import roomService from '../services/RoomService.js';
 import userService from '../services/UserService.js';
 
 class RoomController {
+  // Handle filename changes in room
+  handleFilenameChange(socket, { roomId, oldFilename, newFilename, userName }) {
+    try {
+      // Persist filename in room
+      roomService.updateRoomFilename(roomId, newFilename);
+      // Broadcast filename change to all users in the room
+      this.io.in(roomId).emit("filenameChanged", { oldFilename, newFilename, userName });
+      // Broadcast system chat message
+      const systemMessage = `Filename changed from \"${oldFilename}\" to \"${newFilename}\" by ${userName}`;
+      this.io.in(roomId).emit("chatMessage", { userName: "System", message: systemMessage });
+      console.log(systemMessage);
+      return { success: true };
+    } catch (error) {
+      console.error('Error in handleFilenameChange:', error);
+      return { success: false, error: error.message };
+    }
+  }
   constructor(io) {
     this.io = io; // Store io instance for broadcasting
   }

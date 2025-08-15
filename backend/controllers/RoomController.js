@@ -23,7 +23,7 @@ class RoomController {
       if (previousRoom) {
         socket.leave(previousRoom);
         const { users } = roomService.removeUserFromRoom(previousRoom, user.userName);
-        socket.to(previousRoom).emit("userJoined", users);
+        this.io.in(previousRoom).emit("userJoined", users);
       }
 
       // Join new room
@@ -52,10 +52,11 @@ class RoomController {
   handleCodeChange(socket, { roomId, code }) {
     try {
       const updatedCode = roomService.updateRoomCode(roomId, code);
-      if (updatedCode !== null) {
-        socket.to(roomId).emit("codeUpdated", code);
-        return { success: true };
-      }
+        if (updatedCode !== null) {
+          // Broadcast to all users in the room, including sender
+          this.io.in(roomId).emit("codeUpdated", code);
+          return { success: true };
+        }
       return { success: false, error: 'Room not found' };
     } catch (error) {
       console.error('Error in handleCodeChange:', error);

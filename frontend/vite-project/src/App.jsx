@@ -6,6 +6,8 @@ import Editor from "@monaco-editor/react";
 import VideoCall from "./VideoCall";
 import VersionHistory from "./VersionHistory";
 import FileTabs from "./components/FileTabs";
+import ResizableLayout from "./components/ResizableLayout";
+import ChatWindow from "./components/ChatWindow";
 import { 
   detectFileType, 
   getLanguageDisplayName, 
@@ -39,6 +41,10 @@ const App = () => {
   const [isUndoing, setIsUndoing] = useState(false);
   const [isRedoing, setIsRedoing] = useState(false);
   const [isCreatingCheckpoint, setIsCreatingCheckpoint] = useState(false);
+  
+  // Resizable panel states
+  const [isChatDetached, setIsChatDetached] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
 
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
 
@@ -347,6 +353,17 @@ const App = () => {
     setChatInput("");
   };
 
+  const handleChatDetach = (detached) => {
+    setIsChatDetached(detached);
+    if (!detached) {
+      setIsChatMinimized(false); // Expand when bringing back
+    }
+  };
+
+  const handleChatMinimize = (minimized) => {
+    setIsChatMinimized(minimized);
+  };
+
   if (!joined) {
     return (
       <div className="join-container">
@@ -371,42 +388,44 @@ const App = () => {
   }
 
   return (
-    <div className="editor-container">
-      <div className="sidebar">
-        <button onClick={toggleTheme} className="theme-toggle-btn">
-          {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
-        </button>
-        <div className="room-info">
-          <h2>Code Room: {roomId}</h2>
-          <button onClick={copyRoomId}> Copy Id</button>
-          {copySuccess && <span className="copy-success">{copySuccess}</span>}
-        </div>
-        <h3>Users in Room:</h3>
-        <ul>
-          {users.map((user, index) => (
-            <li key={index}>{user.slice(0, 8)}</li>
-          ))}
-        </ul>
-        <p className="typing-indicator">{typing}</p>
-        
-        <div className="file-controls">
-          <h3>Current File</h3>
-          {files.length > 0 && getCurrentFilename() ? (
-            <div className="current-file-info">
-              <div className="filename-display">
-                <strong>{getCurrentFilename()}</strong>
-              </div>
-              <div className="language-selector-group">
-                <label htmlFor="language">Language:</label>
-                <select
-                  id="language"
-                  className="language-selector"
-                  value={getCurrentLanguage()}
-                  onChange={handleManualLanguageChange}
-                >
-                  <optgroup label="Popular Languages">
-                    {getPopularLanguages().map((lang) => (
-                      <option key={lang.id} value={lang.id}>
+    <>
+      <ResizableLayout
+        sidebar={
+          <div className="sidebar">
+            <button onClick={toggleTheme} className="theme-toggle-btn">
+              {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+            </button>
+            <div className="room-info">
+              <h2>Code Room: {roomId}</h2>
+              <button onClick={copyRoomId}> Copy Id</button>
+              {copySuccess && <span className="copy-success">{copySuccess}</span>}
+            </div>
+            <h3>Users in Room:</h3>
+            <ul>
+              {users.map((user, index) => (
+                <li key={index}>{user.slice(0, 8)}</li>
+              ))}
+            </ul>
+            <p className="typing-indicator">{typing}</p>
+            
+            <div className="file-controls">
+              <h3>Current File</h3>
+              {files.length > 0 && getCurrentFilename() ? (
+                <div className="current-file-info">
+                  <div className="filename-display">
+                    <strong>{getCurrentFilename()}</strong>
+                  </div>
+                  <div className="language-selector-group">
+                    <label htmlFor="language">Language:</label>
+                    <select
+                      id="language"
+                      className="language-selector"
+                      value={getCurrentLanguage()}
+                      onChange={handleManualLanguageChange}
+                    >
+                      <optgroup label="Popular Languages">
+                        {getPopularLanguages().map((lang) => (
+                          <option key={lang.id} value={lang.id}>
                         {lang.name}
                       </option>
                     ))}
@@ -471,102 +490,154 @@ const App = () => {
             >
               {isRedoing ? "Redoing..." : "Redo"}
             </button>
-          </div>
-          <div className="version-info">
-            <span className="version-count">
-              {undoRedoState.currentVersionIndex + 1} /{" "}
-              {undoRedoState.totalVersions}
-            </span>
-          </div>
-          <button
-            className="version-btn history-btn"
-            onClick={() => setShowVersionHistory(true)}
-            title="View version history"
-          >
-            History
-          </button>
-          <button
-            className={`version-btn checkpoint-btn ${
-              isCreatingCheckpoint ? "loading" : ""
-            }`}
-            onClick={createCheckpoint}
-            disabled={isCreatingCheckpoint}
-            title="Create checkpoint"
-          >
-            {isCreatingCheckpoint ? "Creating..." : "Checkpoint"}
-          </button>
-        </div>
-      </div>
 
-      <div className="editor-wrapper">
-        <FileTabs
-          files={files}
-          activeFileId={activeFileId}
-          onTabClick={handleTabClick}
-          onCreateFile={handleCreateFile}
-          onRenameFile={handleRenameFile}
-          onDeleteFile={handleDeleteFile}
-        />
-        {files.length > 0 && activeFileId ? (
-          <Editor
-            height={"calc(100% - 40px)"}
-            defaultLanguage={getCurrentLanguage()}
-            language={getCurrentLanguage()}
-            value={getCurrentCode()}
-            onChange={handleChange}
-            theme={theme === "dark" ? "vs-dark" : "vs-light"}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-            }}
-          />
-        ) : (
-          <div className="editor-placeholder">
-            <div className="placeholder-content">
-              <h3>Welcome to the Collaborative Code Editor</h3>
-              <p>Loading files or create a new file to start coding...</p>
+            <div className="version-controls">
+              <h3>Version History</h3>
+              <div className="version-buttons">
+                <button
+                  className={`version-btn undo-btn ${
+                    !undoRedoState.canUndo || isUndoing ? "disabled" : ""
+                  } ${isUndoing ? "loading" : ""}`}
+                  onClick={handleUndo}
+                  disabled={!undoRedoState.canUndo || isUndoing}
+                  title="Undo (Ctrl+Z)"
+                >
+                  {isUndoing ? "Undoing..." : "Undo"}
+                </button>
+                <button
+                  className={`version-btn redo-btn ${
+                    !undoRedoState.canRedo || isRedoing ? "disabled" : ""
+                  } ${isRedoing ? "loading" : ""}`}
+                  onClick={handleRedo}
+                  disabled={!undoRedoState.canRedo || isRedoing}
+                  title="Redo (Ctrl+Y)"
+                >
+                  {isRedoing ? "Redoing..." : "Redo"}
+                </button>
+              </div>
+              <div className="version-info">
+                <span className="version-count">
+                  {undoRedoState.currentVersionIndex + 1} /{" "}
+                  {undoRedoState.totalVersions}
+                </span>
+              </div>
+              <button
+                className="version-btn history-btn"
+                onClick={() => setShowVersionHistory(true)}
+                title="View version history"
+              >
+                History
+              </button>
+              <button
+                className={`version-btn checkpoint-btn ${
+                  isCreatingCheckpoint ? "loading" : ""
+                }`}
+                onClick={createCheckpoint}
+                disabled={isCreatingCheckpoint}
+                title="Create checkpoint"
+              >
+                {isCreatingCheckpoint ? "Creating..." : "Checkpoint"}
+              </button>
             </div>
           </div>
-        )}
-        <VideoCall
-          socket={socket}
-          roomId={roomId}
-          userName={userName}
-          joined={joined}
-        />
-      </div>
-
-      <div className="chat-panel">
-        <div className="chat-messages">
-          {chatMessages.map((msg, idx) => (
-            <div key={idx} className="chat-message">
-              <span className="chat-user">{msg.userName.slice(0, 8)}:</span>{" "}
-              {msg.message}
+          </div>
+        }
+        editor={
+          <div className="editor-wrapper">
+            <FileTabs
+              files={files}
+              activeFileId={activeFileId}
+              onTabClick={handleTabClick}
+              onCreateFile={handleCreateFile}
+              onRenameFile={handleRenameFile}
+              onDeleteFile={handleDeleteFile}
+            />
+            {files.length > 0 && activeFileId ? (
+              <Editor
+                height={"calc(100% - 40px)"}
+                defaultLanguage={getCurrentLanguage()}
+                language={getCurrentLanguage()}
+                value={getCurrentCode()}
+                onChange={handleChange}
+                theme={theme === "dark" ? "vs-dark" : "vs-light"}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                }}
+              />
+            ) : (
+              <div className="editor-placeholder">
+                <div className="placeholder-content">
+                  <h3>Welcome to the Collaborative Code Editor</h3>
+                  <p>Loading files or create a new file to start coding...</p>
+                </div>
+              </div>
+            )}
+            <VideoCall
+              socket={socket}
+              roomId={roomId}
+              userName={userName}
+              joined={joined}
+            />
+          </div>
+        }
+        chatPanel={
+          <div className="chat-panel-content">
+            <div className="chat-messages">
+              {chatMessages.map((msg, idx) => (
+                <div key={idx} className="chat-message">
+                  <span className="chat-user">{msg.userName.slice(0, 8)}:</span>{" "}
+                  {msg.message}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <form className="chat-input-form" onSubmit={sendChatMessage}>
-          <input
-            className="chat-input"
-            type="text"
-            placeholder="Type a message..."
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            maxLength={200}
-          />
-          <button type="submit" className="chat-send-btn">
-            Send
-          </button>
-        </form>
-      </div>
+            <form className="chat-input-form" onSubmit={sendChatMessage}>
+              <input
+                className="chat-input"
+                type="text"
+                placeholder="Type a message..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                maxLength={200}
+              />
+              <button type="submit" className="chat-send-btn">
+                Send
+              </button>
+            </form>
+          </div>
+        }
+        onChatDetach={handleChatDetach}
+        isChatDetached={isChatDetached}
+        onChatMinimize={handleChatMinimize}
+        isChatMinimized={isChatMinimized}
+        chatMessages={chatMessages}
+        chatInput={chatInput}
+        setChatInput={setChatInput}
+        sendChatMessage={sendChatMessage}
+        socket={socket}
+        roomId={roomId}
+        userName={userName}
+      />
+      
+      {/* Detached Chat Window */}
+      {isChatDetached && (
+        <ChatWindow
+          chatMessages={chatMessages}
+          chatInput={chatInput}
+          setChatInput={setChatInput}
+          sendChatMessage={sendChatMessage}
+          onClose={() => setIsChatDetached(false)}
+        />
+      )}
 
+      {/* Version History Modal */}
       <VersionHistory
         socket={socket}
         roomId={roomId}
         isOpen={showVersionHistory}
         onClose={() => setShowVersionHistory(false)}
       />
-    </div>
+    </>
   );
 };
 

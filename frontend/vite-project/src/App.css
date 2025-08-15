@@ -103,6 +103,92 @@ button:hover {
   overflow-y: auto;
   box-shadow: 2px 0 10px var(--shadow-light);
 }
+
+/* File Controls Styling */
+.sidebar .file-controls {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(52, 73, 94, 0.3);
+  border-radius: 6px;
+  border: 1px solid rgba(236, 240, 241, 0.1);
+}
+
+.sidebar .file-controls h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: var(--sidebar-text);
+  border-bottom: 1px solid rgba(236, 240, 241, 0.2);
+  padding-bottom: 0.5rem;
+}
+
+.sidebar .filename-input-group,
+.sidebar .language-selector-group {
+  margin-bottom: 1rem;
+}
+
+.sidebar .filename-input-group label,
+.sidebar .language-selector-group label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.9rem;
+  color: #bdc3c7;
+  font-weight: 500;
+}
+
+.sidebar .filename-input {
+  width: 100%;
+  padding: 0.6rem;
+  background-color: var(--panel-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.sidebar .filename-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.sidebar .filename-input::placeholder {
+  color: #7f8c8d;
+}
+
+.sidebar .show-all-languages-btn {
+  width: 100%;
+  padding: 0.4rem;
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  border: 1px solid var(--accent-hover);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.sidebar .show-all-languages-btn:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.sidebar .language-info {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(46, 204, 113, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid var(--success-color);
+}
+
+.sidebar .language-info small {
+  color: var(--text-color);
+  font-size: 0.8rem;
+}
+
+.sidebar .language-info strong {
+  color: var(--success-color);
+}
 .sidebar .room-info {
   display: flex;
   flex-direction: column;
@@ -157,11 +243,31 @@ button:hover {
 .language-selector {
   margin-top: 1rem;
   width: 100%;
-  padding: 0.5rem;
-  background-color: var(--accent-color);
+  padding: 0.6rem;
+  background-color: var(--panel-bg);
   color: var(--text-color);
-  border: none;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  transition: border-color 0.3s ease;
+}
+
+.language-selector:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.language-selector optgroup {
+  background-color: var(--panel-bg);
+  color: var(--text-color);
+  font-weight: bold;
+}
+
+.language-selector option {
+  background-color: var(--panel-bg);
+  color: var(--text-color);
+  padding: 0.3rem;
 }
 .leave-button {
   margin-top: 1rem;
@@ -389,4 +495,28 @@ button:hover {
 .theme-toggle-btn:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
+}
+
+/* ===== Responsive file controls ===== */
+@media (max-width: 768px) {
+  .sidebar .file-controls {
+    margin-top: 1rem;
+    padding: 0.8rem;
+  }
+
+  .sidebar .filename-input,
+  .sidebar .language-selector {
+    padding: 0.8rem;
+    font-size: 1rem;
+  }
+
+  .sidebar .show-all-languages-btn {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .sidebar .language-info {
+    margin-top: 0.8rem;
+    padding: 0.8rem;
+  }
 }

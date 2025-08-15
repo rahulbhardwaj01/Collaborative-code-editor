@@ -5,19 +5,12 @@ const socket = io("http://localhost:3000");
 import Editor from "@monaco-editor/react";
 import VideoCall from "./VideoCall";
 import VersionHistory from "./VersionHistory";
-import { 
-  detectLanguageFromExtension, 
-  getLanguageDisplayName, 
-  getSupportedLanguages,
-  isLanguageSupported,
-  getDefaultCodeTemplate 
-} from "./utils/fileTypeDetection";
 
 const App = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
-  const [language, setLanguage] = useState("javascript");
+  const [language, setLanguage] = useState("js");
   const [code, setCode] = useState("// start coding here...");
   const [copySuccess, setCopySuccess] = useState("");
   const [users, setUsers] = useState([]);
@@ -25,8 +18,6 @@ const App = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [showVersionHistory, setShowVersionHistory] = useState(false);
-  const [currentFileName, setCurrentFileName] = useState("untitled.js");
-  const [showFileInput, setShowFileInput] = useState(false);
   const [undoRedoState, setUndoRedoState] = useState({
     canUndo: false,
     canRedo: false,
@@ -186,11 +177,9 @@ const App = () => {
     setCode("// start coding here...");
     setUsers([]);
     setTyping("");
-    setLanguage("javascript");
+    setLanguage("js");
     setChatMessages([]);
     setChatInput("");
-    setCurrentFileName("untitled.js");
-    setShowFileInput(false);
   };
 
   const copyRoomId = () => {
@@ -241,74 +230,6 @@ const App = () => {
     setLanguage(newLanguage);
     socket.emit("languageChange", { roomId, language: newLanguage });
   };
-
-  // File name change handler with automatic language detection
-  const handleFileNameChange = (filename) => {
-    setCurrentFileName(filename);
-    const detectedLanguage = detectLanguageFromExtension(filename);
-    
-    // Only change language if it's different and supported
-    if (detectedLanguage !== language && isLanguageSupported(detectedLanguage)) {
-      setLanguage(detectedLanguage);
-      
-      // Load appropriate template for new file type
-      const template = getDefaultCodeTemplate(detectedLanguage, filename);
-      setCode(template);
-      
-      socket.emit("languageChange", { roomId, language: detectedLanguage });
-      socket.emit("codeChange", { roomId, code: template });
-    }
-    
-    setShowFileInput(false);
-  };
-
-  // Manual language override (when user explicitly selects from dropdown)
-  const handleManualLanguageChange = (e) => {
-    const newLanguage = e.target.value;
-    setLanguage(newLanguage);
-    socket.emit("languageChange", { roomId, language: newLanguage });
-  };
-
-  // Create new file with template
-  const createNewFile = (language) => {
-    const extensions = {
-      'javascript': 'js',
-      'typescript': 'ts',
-      'python': 'py',
-      'java': 'java',
-      'html': 'html',
-      'css': 'css',
-      'json': 'json',
-      'cpp': 'cpp',
-      'csharp': 'cs',
-      'go': 'go',
-      'rust': 'rs',
-      'php': 'php',
-      'ruby': 'rb',
-      'swift': 'swift',
-      'kotlin': 'kt',
-      'shell': 'sh',
-      'powershell': 'ps1',
-      'sql': 'sql',
-      'yaml': 'yml',
-      'dockerfile': 'dockerfile',
-      'markdown': 'md',
-      'xml': 'xml'
-    };
-    
-    const extension = extensions[language] || 'txt';
-    const filename = `untitled.${extension}`;
-    const template = getDefaultCodeTemplate(language, filename);
-    
-    setCurrentFileName(filename);
-    setLanguage(language);
-    setCode(template);
-    
-    socket.emit("languageChange", { roomId, language });
-    socket.emit("codeChange", { roomId, code: template });
-  };
-
-  // Version History functions
 
   const handleUndo = () => {
     if (undoRedoState.canUndo && !isUndoing) {
@@ -401,68 +322,6 @@ const App = () => {
           ))}
         </ul>
         <p className="typing-indicator">{typing}</p>
-        
-        {/* File Management Section */}
-        <div className="file-management">
-          <h3>File</h3>
-          <div className="file-info">
-            <div className="current-file">
-              <span className="file-label">Current file:</span>
-              <span className="file-name" onClick={() => setShowFileInput(true)} title="Click to change filename">
-                {currentFileName}
-              </span>
-            </div>
-            {showFileInput && (
-              <div className="file-input-container">
-                <input
-                  type="text"
-                  placeholder="Enter filename (e.g., script.py, index.html)"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleFileNameChange(e.target.value || 'untitled.txt');
-                    } else if (e.key === 'Escape') {
-                      setShowFileInput(false);
-                    }
-                  }}
-                  onBlur={(e) => {
-                    if (e.target.value.trim()) {
-                      handleFileNameChange(e.target.value);
-                    } else {
-                      setShowFileInput(false);
-                    }
-                  }}
-                  autoFocus
-                  className="file-input"
-                />
-                <small className="file-input-hint">Press Enter to save, Esc to cancel</small>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Language Selection */}
-        <div className="language-section">
-          <h3>Language</h3>
-          <div className="language-info">
-            <div className="detected-language">
-              <span className="language-label">Detected:</span>
-              <span className="language-value">{getLanguageDisplayName(language)}</span>
-            </div>
-            <select
-              className="language-selector"
-              value={language}
-              onChange={handleManualLanguageChange}
-              title="Override detected language"
-            >
-              {getSupportedLanguages().map(lang => (
-                <option key={lang.value} value={lang.value}>
-                  {lang.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
         <select
           className="language-selector"
           value={language}
@@ -472,7 +331,6 @@ const App = () => {
           <option value="python">python</option>
           <option value="java">java</option>
         </select>
-
         <button className="leave-button" onClick={leaveRoom}>
           Leave Room
         </button>

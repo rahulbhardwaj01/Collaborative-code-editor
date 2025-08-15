@@ -272,7 +272,7 @@ const App = () => {
         </ul>
         <p className="typing-indicator">{typing}</p>
         <select
-          className="language-seletor"
+          className="language-selector"
           value={language}
           onChange={handleLanguageChange}
         >

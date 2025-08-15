@@ -22,7 +22,7 @@ const App = () => {
     canUndo: false,
     canRedo: false,
     currentVersionIndex: -1,
-    totalVersions: 0
+    totalVersions: 0,
   });
   const [isUndoing, setIsUndoing] = useState(false);
   const [isRedoing, setIsRedoing] = useState(false);
@@ -30,6 +30,29 @@ const App = () => {
 
   // Debounce for code changes
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
+  const [theme, setTheme] = useState("dark");
+
+  // Load saved theme on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    setTheme(savedTheme);
+    if (savedTheme === "light") {
+      document.body.classList.add("light-mode");
+    }
+  }, []);
+
+  // Handle theme change
+  const toggleTheme = () => {
+    if (theme === "dark") {
+      document.body.classList.add("light-mode");
+      localStorage.setItem("theme", "light");
+      setTheme("light");
+    } else {
+      document.body.classList.remove("light-mode");
+      localStorage.setItem("theme", "dark");
+      setTheme("dark");
+    }
+  };
 
   useEffect(() => {
     socket.on("userJoined", (users) => {
@@ -64,8 +87,16 @@ const App = () => {
       setCode(data.code);
       setLanguage(data.language);
       setUndoRedoState(data.undoRedoState);
+
+      // Reset loading states
       setIsUndoing(false);
       setIsRedoing(false);
+
+      // Show notification about the revert
+
+      setIsUndoing(false);
+      setIsRedoing(false);
+
       const actionText =
         data.action === "undo"
           ? "undone"
@@ -88,6 +119,9 @@ const App = () => {
 
     socket.on("error", (error) => {
       console.error("Socket error:", error);
+
+      // Reset loading states on error
+
       if (error.type === "undo") setIsUndoing(false);
       if (error.type === "redo") setIsRedoing(false);
       if (error.type === "checkpoint") setIsCreatingCheckpoint(false);
@@ -123,6 +157,9 @@ const App = () => {
     if (roomId && userName) {
       socket.emit("join_room", { roomId, userName });
       setJoined(true);
+
+
+      // Request initial undo/redo state after joining
 
       setTimeout(() => {
         socket.emit("getUndoRedoState", { roomId });
@@ -160,12 +197,27 @@ const App = () => {
   const handleChange = (newCode) => {
     setCode(newCode);
 
+
+    // Clear existing timeout
+
+
     if (codeChangeTimeout) {
       clearTimeout(codeChangeTimeout);
     }
 
+
+    // Debounce code change to avoid too many version saves
+
+
     const newTimeout = setTimeout(() => {
       socket.emit("codeChange", { roomId, code: newCode });
+
+    }, 500); // 500ms delay
+
+    setCodeChangeTimeout(newTimeout);
+
+    // Immediate typing notification
+
     }, 500);
 
     setCodeChangeTimeout(newTimeout);
@@ -255,6 +307,9 @@ const App = () => {
   return (
     <div className="editor-container">
       <div className="sidebar">
+        <button onClick={toggleTheme} className="theme-toggle-btn">
+          {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+        </button>
         <div className="room-info">
           <h2>Code Room: {roomId}</h2>
           <button onClick={copyRoomId}> Copy Id</button>
@@ -268,7 +323,7 @@ const App = () => {
         </ul>
         <p className="typing-indicator">{typing}</p>
         <select
-          className="language-seletor"
+          className="language-selector"
           value={language}
           onChange={handleLanguageChange}
         >
@@ -374,6 +429,9 @@ const App = () => {
           </button>
         </form>
       </div>
+
+
+      {/* Version History Modal */}
 
       <VersionHistory
         socket={socket}

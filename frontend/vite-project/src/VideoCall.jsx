@@ -1,8 +1,4 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-
-
-import "./VideoCall.css";
-
 import SimplePeer from "simple-peer";
 import './VideoCall.css';
 

@@ -11,7 +11,7 @@ const App = () => {
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
   const [language, setLanguage] = useState("js");
-  const [code, setCode] = useState("// start coding here...");
+  const [code, setCode] = useState("");
   const [copySuccess, setCopySuccess] = useState("");
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState(false);
@@ -31,6 +31,8 @@ const App = () => {
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
 
   const [theme, setTheme] = useState("dark");
+
+  const placeholder = '  Start typing here...';
 
   // Load saved theme on mount
   useEffect(() => {
@@ -158,23 +160,32 @@ const App = () => {
   };
 
   const handleChange = (newCode) => {
-    setCode(newCode);
+  const placeholderEl = document.querySelector('.monaco-placeholder');
 
-    if (codeChangeTimeout) clearTimeout(codeChangeTimeout);
+  // use newCode instead of undefined "value"
+  if (!newCode) {
+    if (placeholderEl) placeholderEl.style.display = 'block';
+  } else {
+    if (placeholderEl) placeholderEl.style.display = 'none';
+  }
 
-    if (codeChangeTimeout) {
-      clearTimeout(codeChangeTimeout);
-    }
+  setCode(newCode);
 
-    const newTimeout = setTimeout(() => {
-      socket.emit("codeChange", { roomId, code: newCode });
-    }, 500);
+  // clear existing timeout if any
+  if (codeChangeTimeout) {
+    window.clearTimeout(codeChangeTimeout);
+  }
 
-    setCodeChangeTimeout(newTimeout);
+  const newTimeout = window.setTimeout(() => {
+    socket.emit('codeChange', { roomId, code: newCode });
+  }, 500);
 
-    // typing notification
-    socket.emit("typing", { roomId, userName });
-  };
+  setCodeChangeTimeout(newTimeout);
+
+  // typing notification
+  socket.emit('typing', { roomId, userName });
+};
+
 
   const handleLanguageChange = (e) => {
     const newLanguage = e.target.value;
@@ -228,6 +239,12 @@ const App = () => {
     setChatMessages((prev) => [...prev, newMessage]);
     socket.emit("chatMessage", { roomId, ...newMessage });
     setChatInput("");
+  };
+
+  const handleEditorOnMount = (editor, monaco) => {
+    const placeholderEl = document.querySelector('.monaco-placeholder');
+    placeholderEl.style.display = 'block';
+    editor.focus();
   };
 
   if (!joined) {
@@ -341,12 +358,15 @@ const App = () => {
           language={language}
           value={code}
           onChange={handleChange}
+          // onChange={handleEditorOnChange}
+          onMount={handleEditorOnMount}
           theme="vs-dark"
           options={{
             minimap: { enabled: false },
             fontSize: 14,
           }}
         />
+        <div className="monaco-placeholder">{placeholder}</div>
         <VideoCall
           socket={socket}
           roomId={roomId}

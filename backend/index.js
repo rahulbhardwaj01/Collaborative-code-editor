@@ -94,14 +94,10 @@ io.on("connection", (socket) => {
 const port = 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-app.use(
-  express.static(join(__dirname, "..", "frontend", "vite-project", "dist"))
-);
+app.use(express.static(path.join(__dirname, "../frontend/vite-project/dist")));
 
-app.get("/*", (req, res) => {
-  res.sendFile(
-    join(__dirname, "..", "frontend", "vite-project", "dist", "index.html")
-  );
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/vite-project/dist/index.html"));
 });
 
 server.listen(port, () => {

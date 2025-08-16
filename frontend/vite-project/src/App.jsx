@@ -7,6 +7,12 @@ import VideoCall from "./VideoCall";
 import VersionHistory from "./VersionHistory";
 import ResizableLayout from "./components/ResizableLayout";
 import ChatWindow from "./components/ChatWindow";
+import LandingPage from "./pages/Landing_page";
+import { queryClient } from "./lib/queryClient";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "./components/ui/toaster";
+import { TooltipProvider } from "./components/ui/tooltip";
+import NotFound from "./pages/not-found";
 import { 
   detectFileType, 
   getLanguageDisplayName, 
@@ -309,30 +315,26 @@ const App = () => {
     editor.focus();
   };
 
+   const handleJoinFromLanding = (newRoomId, newUserName) => {
+    setRoomId(newRoomId);
+    setUserName(newUserName);
+    socket.emit("join_room", { roomId: newRoomId, userName: newUserName });
+    setJoined(true);
+
+    // Request initial undo/redo state after joining
+    setTimeout(() => {
+      socket.emit("getUndoRedoState", { roomId: newRoomId });
+    }, 1000);
+  };
+
   if (!joined) {
-    return (
-      <div className="join-container">
-        <div className="join-form">
-          <h1>Join Code Room</h1>
-          <input
-            type="text"
-            placeholder="Room Id"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Your Name"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-          />
-          <button onClick={joinRoom}>Join Room</button>
-        </div>
-      </div>
-    );
+    return <LandingPage onJoinRoom={handleJoinFromLanding} />;
   }
 
     return (
+          <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
     <>
       <ResizableLayout
         sidebar={
@@ -545,6 +547,8 @@ const App = () => {
         onClose={() => setShowVersionHistory(false)}
       />
     </>
+          </TooltipProvider>
+    </QueryClientProvider>
   );
 };
 

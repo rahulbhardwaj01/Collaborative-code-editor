@@ -5,9 +5,20 @@ class Room {
   constructor(roomId) {
     this.roomId = roomId;
     this.users = new Set();
-    this.code = ''; // Current code in the room
-    this.language = 'javascript'; // Default language
-    this.messages = []; // Chat messages
+    this.code = '';
+    this.language = 'javascript';
+    this.filename = 'untitled.js'; // Default filename
+    this.messages = [];
+  }
+  // Update filename in room
+  updateFilename(newFilename) {
+    this.filename = newFilename;
+    return this.filename;
+  }
+
+  // Get current filename
+  getFilename() {
+    return this.filename;
   }
 
   // Add user to room

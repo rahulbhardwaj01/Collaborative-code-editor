@@ -3,6 +3,23 @@ import roomService from '../services/RoomService.js';
 import userService from '../services/UserService.js';
 
 class RoomController {
+  // Handle filename changes in room
+  handleFilenameChange(socket, { roomId, oldFilename, newFilename, userName }) {
+    try {
+      // Persist filename in room
+      roomService.updateRoomFilename(roomId, newFilename);
+      // Broadcast filename change to all users in the room
+      this.io.in(roomId).emit("filenameChanged", { oldFilename, newFilename, userName });
+      // Broadcast system chat message
+      const systemMessage = `Filename changed from \"${oldFilename}\" to \"${newFilename}\" by ${userName}`;
+      this.io.in(roomId).emit("chatMessage", { userName: "System", message: systemMessage });
+      console.log(systemMessage);
+      return { success: true };
+    } catch (error) {
+      console.error('Error in handleFilenameChange:', error);
+      return { success: false, error: error.message };
+    }
+  }
   constructor(io) {
     this.io = io; // Store io instance for broadcasting
   }
@@ -23,7 +40,7 @@ class RoomController {
       if (previousRoom) {
         socket.leave(previousRoom);
         const { users } = roomService.removeUserFromRoom(previousRoom, user.userName);
-        socket.to(previousRoom).emit("userJoined", users);
+        this.io.in(previousRoom).emit("userJoined", users);
       }
 
       // Join new room
@@ -31,8 +48,8 @@ class RoomController {
       userService.updateUserRoom(socket.id, roomId);
       const { users } = roomService.addUserToRoom(roomId, userName);
 
-      // Notify all users in the room
-      socket.to(roomId).emit("userJoined", users);
+  // Notify all users in the room
+  this.io.in(roomId).emit("userJoined", users);
       
       console.log(`User ${userName} joined room ${roomId}`);
       return { success: true, users };
@@ -46,10 +63,11 @@ class RoomController {
   handleCodeChange(socket, { roomId, code }) {
     try {
       const updatedCode = roomService.updateRoomCode(roomId, code);
-      if (updatedCode !== null) {
-        socket.to(roomId).emit("codeUpdated", code);
-        return { success: true };
-      }
+        if (updatedCode !== null) {
+          // Broadcast to all users in the room, including sender
+          this.io.in(roomId).emit("codeUpdated", code);
+          return { success: true };
+        }
       return { success: false, error: 'Room not found' };
     } catch (error) {
       console.error('Error in handleCodeChange:', error);

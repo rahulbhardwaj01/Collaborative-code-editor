@@ -157,6 +157,24 @@ button:hover {
   color: #7f8c8d;
 }
 
+.sidebar .save-filename-btn {
+  width: 100%;
+  padding: 0.6rem;
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  border: 1px solid var(--accent-hover);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 0.5rem;
+}
+
+.sidebar .save-filename-btn:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
 .sidebar .show-all-languages-btn {
   width: 100%;
   padding: 0.4rem;
@@ -533,6 +551,80 @@ button:hover {
   border-color: var(--accent-hover);
 }
 
+/* ===== Enhanced file management styles ===== */
+.editor-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-bg);
+  color: var(--text-color);
+  height: calc(100% - 40px);
+}
+
+.placeholder-content {
+  text-align: center;
+  padding: 2rem;
+}
+
+.placeholder-content h3 {
+  color: var(--accent-color);
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.placeholder-content p {
+  color: var(--secondary-text);
+  font-size: 1rem;
+}
+
+.loading-files {
+  padding: 1rem;
+  text-align: center;
+  color: var(--secondary-text);
+}
+
+.current-file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.filename-display {
+  padding: 0.8rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.filename-display strong {
+  color: var(--accent-color);
+}
+
+/* Better responsive design for file controls */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 280px;
+  }
+  
+  .current-file-info {
+    padding: 0.8rem;
+  }
+  
+  .filename-display {
+    font-size: 0.95rem;
+  }
+}
+
+/* Monaco Editor Placeholder Styles */
 .monaco-placeholder {
   position: absolute;
   display: none;
@@ -646,5 +738,14 @@ button:hover {
   .sidebar .language-info {
     margin-top: 0.8rem;
     padding: 0.8rem;
+  }
+
+  .current-file-info {
+    gap: 0.6rem;
+  }
+
+  .filename-display {
+    padding: 0.6rem;
+    font-size: 0.9rem;
   }
 }

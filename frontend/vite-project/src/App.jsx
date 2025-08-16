@@ -521,121 +521,102 @@ const App = () => {
     // Debug: Log current language
     console.log('[DEBUG] Editor language:', editor.getModel().getLanguageId());
 
-    // Register C++ completion provider
+    // Register completion providers for all supported languages
     if (monaco.languages && monaco.languages.registerCompletionItemProvider) {
-      console.log('[DEBUG] Registering C++ completion provider');
-      monaco.languages.registerCompletionItemProvider('cpp', {
-        provideCompletionItems: function(model, position) {
-          const word = model.getWordUntilPosition(position);
-          console.log('[DEBUG] Completion requested for word:', word);
-          const suggestions = [
-            {
-              label: '#incl',
-              kind: monaco.languages.CompletionItemKind.Keyword,
-              insertText: '#include',
-              detail: 'C++ include directive',
-            },
-            {
-              label: 'int',
-              kind: monaco.languages.CompletionItemKind.Keyword,
-              insertText: 'int',
-              detail: 'C++ int type',
-            },
-            {
-              label: 'main',
-              kind: monaco.languages.CompletionItemKind.Function,
-              insertText: 'main()',
-              detail: 'C++ main function',
-            },
-            {
-              label: 'std',
-              kind: monaco.languages.CompletionItemKind.Module,
-              insertText: 'std',
-              detail: 'C++ Standard Library namespace',
-            },
-            {
-              label: 'cout',
-              kind: monaco.languages.CompletionItemKind.Variable,
-              insertText: 'cout',
-              detail: 'C++ output stream',
-            },
-            {
-              label: 'cin',
-              kind: monaco.languages.CompletionItemKind.Variable,
-              insertText: 'cin',
-              detail: 'C++ input stream',
-            },
-            {
-              label: 'return',
-              kind: monaco.languages.CompletionItemKind.Keyword,
-              insertText: 'return',
-              detail: 'C++ return statement',
-            },
-            {
-              label: 'void',
-              kind: monaco.languages.CompletionItemKind.Keyword,
-              insertText: 'void',
-              detail: 'C++ void type',
-            },
-            {
-              label: 'double',
-              kind: monaco.languages.CompletionItemKind.Keyword,
-              insertText: 'double',
-              detail: 'C++ double type',
-            },
-            {
-              label: 'float',
-              kind: monaco.languages.CompletionItemKind.Keyword,
-              insertText: 'float',
-              detail: 'C++ float type',
-            },
-              // C++ for loop
-              {
-                label: 'for',
-                kind: monaco.languages.CompletionItemKind.Keyword,
-                insertText: 'for (int i = 0; i < n; ++i) {\n    // ...\n}',
-                detail: 'C++ for loop',
-              },
-              // C++ while loop
-              {
-                label: 'while',
-                kind: monaco.languages.CompletionItemKind.Keyword,
-                insertText: 'while (condition) {\n    // ...\n}',
-                detail: 'C++ while loop',
-              },
-              // C++ STL vector
-              {
-                label: 'vector',
-                kind: monaco.languages.CompletionItemKind.Class,
-                insertText: 'std::vector<int> v;',
-                detail: 'C++ STL vector',
-              },
-              // C++ STL map
-              {
-                label: 'map',
-                kind: monaco.languages.CompletionItemKind.Class,
-                insertText: 'std::map<int, int> m;',
-                detail: 'C++ STL map',
-              },
-              // C++ STL set
-              {
-                label: 'set',
-                kind: monaco.languages.CompletionItemKind.Class,
-                insertText: 'std::set<int> s;',
-                detail: 'C++ STL set',
-              },
-              // C++ STL unordered_map
-              {
-                label: 'unordered_map',
-                kind: monaco.languages.CompletionItemKind.Class,
-                insertText: 'std::unordered_map<int, int> um;',
-                detail: 'C++ STL unordered_map',
-              },
-            // Add more suggestions as needed
-          ];
-          console.log('[DEBUG] Suggestions returned:', suggestions);
-          return { suggestions };
-        }
+      const languageSuggestions = {
+        javascript: [
+          { label: 'for', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'for (let i = 0; i < arr.length; i++) {\n  // ...\n}', detail: 'JavaScript for loop' },
+          { label: 'forEach', kind: monaco.languages.CompletionItemKind.Method, insertText: 'arr.forEach(item => {\n  // ...\n});', detail: 'JavaScript Array forEach' },
+          { label: 'map', kind: monaco.languages.CompletionItemKind.Method, insertText: 'arr.map(item => item * 2);', detail: 'JavaScript Array map' },
+          { label: 'filter', kind: monaco.languages.CompletionItemKind.Method, insertText: 'arr.filter(item => item > 0);', detail: 'JavaScript Array filter' },
+          { label: 'reduce', kind: monaco.languages.CompletionItemKind.Method, insertText: 'arr.reduce((acc, item) => acc + item, 0);', detail: 'JavaScript Array reduce' },
+          { label: 'async/await', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'async function fetchData() {\n  try {\n    const res = await fetch(url);\n    const data = await res.json();\n  } catch (e) {\n    // ...\n  }\n}', detail: 'JavaScript async/await' },
+          { label: 'class', kind: monaco.languages.CompletionItemKind.Class, insertText: 'class MyClass {\n  constructor() {\n    // ...\n  }\n}', detail: 'JavaScript class' },
+          { label: 'Promise', kind: monaco.languages.CompletionItemKind.Class, insertText: 'new Promise((resolve, reject) => {\n  // ...\n});', detail: 'JavaScript Promise' },
+          { label: 'setTimeout', kind: monaco.languages.CompletionItemKind.Function, insertText: 'setTimeout(() => {\n  // ...\n}, 1000);', detail: 'JavaScript setTimeout' },
+          { label: 'console.log', kind: monaco.languages.CompletionItemKind.Function, insertText: 'console.log()', detail: 'JavaScript log' },
+        ],
+        typescript: [
+          { label: 'interface', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'interface Name {\n  // ...\n}', detail: 'TypeScript interface' },
+          { label: 'type', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'type Name = {\n  // ...\n}', detail: 'TypeScript type' },
+          { label: 'enum', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'enum MyEnum {\n  VALUE1,\n  VALUE2\n}', detail: 'TypeScript enum' },
+          { label: 'generic', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'function identity<T>(arg: T): T {\n  return arg;\n}', detail: 'TypeScript generic function' },
+        ],
+        python: [
+          { label: 'for', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'for i in range(n):\n    # ...', detail: 'Python for loop' },
+          { label: 'while', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'while condition:\n    # ...', detail: 'Python while loop' },
+          { label: 'def', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'def function_name(params):\n    # ...', detail: 'Python function' },
+          { label: 'class', kind: monaco.languages.CompletionItemKind.Class, insertText: 'class MyClass:\n    def __init__(self):\n        pass', detail: 'Python class' },
+          { label: 'list comprehension', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '[x for x in iterable]', detail: 'Python list comprehension' },
+          { label: 'lambda', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'lambda x: x * 2', detail: 'Python lambda' },
+          { label: 'import', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'import module', detail: 'Python import' },
+          { label: 'print', kind: monaco.languages.CompletionItemKind.Function, insertText: 'print()', detail: 'Python print' },
+        ],
+        java: [
+          { label: 'for', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'for (int i = 0; i < n; i++) {\n    // ...\n}', detail: 'Java for loop' },
+          { label: 'while', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'while (condition) {\n    // ...\n}', detail: 'Java while loop' },
+          { label: 'public static void main', kind: monaco.languages.CompletionItemKind.Function, insertText: 'public static void main(String[] args) {\n    // ...\n}', detail: 'Java main method' },
+          { label: 'System.out.println', kind: monaco.languages.CompletionItemKind.Function, insertText: 'System.out.println()', detail: 'Java print' },
+          { label: 'ArrayList', kind: monaco.languages.CompletionItemKind.Class, insertText: 'ArrayList<Type> list = new ArrayList<>();', detail: 'Java ArrayList' },
+          { label: 'HashMap', kind: monaco.languages.CompletionItemKind.Class, insertText: 'HashMap<Key, Value> map = new HashMap<>();', detail: 'Java HashMap' },
+        ],
+        c: [
+          { label: 'for', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'for (int i = 0; i < n; i++) {\n    // ...\n}', detail: 'C for loop' },
+          { label: 'while', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'while (condition) {\n    // ...\n}', detail: 'C while loop' },
+          { label: 'printf', kind: monaco.languages.CompletionItemKind.Function, insertText: 'printf("%d", value);', detail: 'C printf' },
+          { label: 'struct', kind: monaco.languages.CompletionItemKind.Class, insertText: 'struct MyStruct {\n    int a;\n    float b;\n};', detail: 'C struct' },
+          { label: 'typedef', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'typedef int myint;', detail: 'C typedef' },
+        ],
+        cpp: [
+          { label: '#include', kind: monaco.languages.CompletionItemKind.Keyword, insertText: '#include <iostream>', detail: 'C++ include directive' },
+          { label: 'for', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'for (int i = 0; i < n; ++i) {\n    // ...\n}', detail: 'C++ for loop' },
+          { label: 'while', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'while (condition) {\n    // ...\n}', detail: 'C++ while loop' },
+          { label: 'vector', kind: monaco.languages.CompletionItemKind.Class, insertText: 'std::vector<int> v;', detail: 'C++ STL vector' },
+          { label: 'map', kind: monaco.languages.CompletionItemKind.Class, insertText: 'std::map<int, int> m;', detail: 'C++ STL map' },
+          { label: 'set', kind: monaco.languages.CompletionItemKind.Class, insertText: 'std::set<int> s;', detail: 'C++ STL set' },
+          { label: 'unordered_map', kind: monaco.languages.CompletionItemKind.Class, insertText: 'std::unordered_map<int, int> um;', detail: 'C++ STL unordered_map' },
+          { label: 'class', kind: monaco.languages.CompletionItemKind.Class, insertText: 'class MyClass {\npublic:\n    MyClass() {}\n};', detail: 'C++ class' },
+          { label: 'template', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'template <typename T>\nT add(T a, T b) {\n    return a + b;\n}', detail: 'C++ template function' },
+        ],
+        html: [
+          { label: 'div', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '<div>\n  <!-- ... -->\n</div>', detail: 'HTML div' },
+          { label: 'span', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '<span>\n  <!-- ... -->\n</span>', detail: 'HTML span' },
+          { label: 'form', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '<form>\n  <input type="text" />\n</form>', detail: 'HTML form' },
+          { label: 'img', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '<img src="" alt="" />', detail: 'HTML image' },
+        ],
+        css: [
+          { label: 'display', kind: monaco.languages.CompletionItemKind.Property, insertText: 'display: flex;', detail: 'CSS display property' },
+          { label: 'color', kind: monaco.languages.CompletionItemKind.Property, insertText: 'color: #000;', detail: 'CSS color property' },
+          { label: 'margin', kind: monaco.languages.CompletionItemKind.Property, insertText: 'margin: 0;', detail: 'CSS margin property' },
+          { label: 'padding', kind: monaco.languages.CompletionItemKind.Property, insertText: 'padding: 0;', detail: 'CSS padding property' },
+        ],
+        json: [
+          { label: 'key', kind: monaco.languages.CompletionItemKind.Property, insertText: '"key": "value"', detail: 'JSON key-value' },
+          { label: 'array', kind: monaco.languages.CompletionItemKind.Property, insertText: '"items": [1, 2, 3]', detail: 'JSON array' },
+        ],
+        markdown: [
+          { label: 'header', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '# Header', detail: 'Markdown header' },
+          { label: 'list', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '- item', detail: 'Markdown list' },
+          { label: 'code', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '```js\nconsole.log("Hello World");\n```', detail: 'Markdown code block' },
+        ],
+        sql: [
+          { label: 'SELECT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'SELECT * FROM table;', detail: 'SQL SELECT' },
+          { label: 'INSERT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'INSERT INTO table VALUES (...);', detail: 'SQL INSERT' },
+          { label: 'JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'SELECT * FROM table1 JOIN table2 ON table1.id = table2.id;', detail: 'SQL JOIN' },
+        ],
+        // Add more languages and suggestions as needed
+      };
+
+      Object.keys(languageSuggestions).forEach(lang => {
+        monaco.languages.registerCompletionItemProvider(lang, {
+          provideCompletionItems: function(model, position) {
+            const word = model.getWordUntilPosition(position);
+            console.log(`[DEBUG] Completion requested for word:`, word, 'in language:', lang);
+            const suggestions = languageSuggestions[lang] || [];
+            console.log('[DEBUG] Suggestions returned:', suggestions);
+            return { suggestions };
+          }
+        });
       });
     } else {
       console.log('[DEBUG] Monaco completion provider API not available');

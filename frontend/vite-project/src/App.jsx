@@ -19,8 +19,8 @@ const App = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
-  const [language, setLanguage] = useState("javascript");
-  const [code, setCode] = useState("// Welcome to the collaborative code editor\n// Start coding here...");
+  const [language, setLanguage] = useState("js");
+  const [code, setCode] = useState("");
   const [copySuccess, setCopySuccess] = useState("");
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState(false);
@@ -47,6 +47,8 @@ const App = () => {
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
 
   const [theme, setTheme] = useState("dark");
+
+  const placeholderText = '  Start typing here...';
 
   // Load saved theme on mount
   useEffect(() => {
@@ -183,23 +185,32 @@ const App = () => {
   };
 
   const handleChange = (newCode) => {
-    setCode(newCode);
+    const placeholderEl = document.querySelector('.monaco-placeholder');
 
-    if (codeChangeTimeout) clearTimeout(codeChangeTimeout);
-
-    if (codeChangeTimeout) {
-      clearTimeout(codeChangeTimeout);
+    // use newCode instead of undefined "value"
+    if (!newCode) {
+      if (placeholderEl) placeholderEl.style.display = 'block';
+    } else {
+      if (placeholderEl) placeholderEl.style.display = 'none';
     }
 
-    const newTimeout = setTimeout(() => {
-      socket.emit("codeChange", { roomId, code: newCode });
+    setCode(newCode);
+
+    // clear existing timeout if any
+    if (codeChangeTimeout) {
+      window.clearTimeout(codeChangeTimeout);
+    }
+
+    const newTimeout = window.setTimeout(() => {
+      socket.emit('codeChange', { roomId, code: newCode });
     }, 500);
 
     setCodeChangeTimeout(newTimeout);
 
     // typing notification
-    socket.emit("typing", { roomId, userName });
+    socket.emit('typing', { roomId, userName });
   };
+
 
   const handleLanguageChange = (e) => {
     const newLanguage = e.target.value;
@@ -292,6 +303,12 @@ const App = () => {
     setIsChatMinimized(minimized);
   };
 
+  const handleEditorOnMount = (editor, monaco) => {
+    const placeholderEl = document.querySelector('.monaco-placeholder');
+    placeholderEl.style.display = 'block';
+    editor.focus();
+  };
+
   if (!joined) {
     return (
       <div className="join-container">
@@ -315,7 +332,7 @@ const App = () => {
     );
   }
 
-  return (
+    return (
     <>
       <ResizableLayout
         sidebar={
@@ -455,12 +472,14 @@ const App = () => {
               language={language}
               value={code}
               onChange={handleChange}
+              onMount={handleEditorOnMount}
               theme={theme === "dark" ? "vs-dark" : "vs-light"}
               options={{
                 minimap: { enabled: false },
                 fontSize: 14,
               }}
             />
+            <div className={`monaco-placeholder ${theme === 'dark' ? 'placeholder-dark' : 'placeholder-light'}`}>{placeholderText}</div>
             <VideoCall
               socket={socket}
               roomId={roomId}

@@ -518,6 +518,27 @@ button:hover {
   border-color: var(--accent-hover);
 }
 
+.monaco-placeholder {
+  position: absolute;
+  display: none;
+  white-space: pre-wrap;
+  top: 0px;
+  left: 65px;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: Consolas, 'Courier New', monospace;
+  pointer-events: none;
+  user-select: none;
+}
+
+.placeholder-dark {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.placeholder-light {
+  color: rgba(0, 0, 0, 0.4);
+}
+
 /* ===== Chat Panel Content ===== */
 .chat-panel-content {
   display: flex;

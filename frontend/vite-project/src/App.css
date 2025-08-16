@@ -10,7 +10,7 @@
   --text-color: #fff;
   --button-text-color: #fff;
   --panel-bg: #191a1b;
-  --chat-bg: #2c3e50;
+  --chat-bg: #1e1f21;
   --placeholder-bg: #9568e3;
   --border-color: #ccc;
   --secondary-text: #7ed6df;
@@ -568,7 +568,7 @@ button:hover {
   flex: 1;
   overflow-y: auto;
   margin-bottom: 1rem;
-  max-height: 70vh;
+  max-height: 85vh;
   background: var(--chat-bg);
   padding: 0.75rem;
   border-radius: 6px;
@@ -577,7 +577,7 @@ button:hover {
 .chat-panel-content .chat-message {
   margin-bottom: 0.5rem;
   padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(90, 159, 194, 0.421);
   border-radius: 4px;
   word-break: break-word;
 }

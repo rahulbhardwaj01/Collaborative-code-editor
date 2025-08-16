@@ -302,7 +302,7 @@ const ResizableLayout = ({
             placeholder="Type a message..." 
             maxlength="200"
             id="detached-input"
-            value="${chatInput || ''}"
+            style="direction: ltr; unicode-bidi: normal; text-align: left;"
           />
           <button type="submit" class="detached-chat-send-btn">Send</button>
         </form>
@@ -312,6 +312,16 @@ const ResizableLayout = ({
     // Add event listeners
     const form = targetWindow.document.getElementById('detached-chat-form');
     const input = targetWindow.document.getElementById('detached-input');
+    
+    // Set up input value
+    if (input) {
+    input.value = chatInput || "";
+    input.setSelectionRange(input.value.length, input.value.length);
+    input.addEventListener('input', (e) => {
+      setChatInput(e.target.value);
+    });
+    input.focus();
+  }
     
     if (form && input) {
       form.addEventListener('submit', (e) => {

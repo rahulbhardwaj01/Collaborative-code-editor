@@ -5,19 +5,31 @@ const socket = io("http://localhost:3000");
 import Editor from "@monaco-editor/react";
 import VideoCall from "./VideoCall";
 import VersionHistory from "./VersionHistory";
+import ResizableLayout from "./components/ResizableLayout";
+import ChatWindow from "./components/ChatWindow";
+import { 
+  detectFileType, 
+  getLanguageDisplayName, 
+  getPopularLanguages,
+  getAllSupportedLanguages,
+  isLanguageSupported 
+} from "./utils/fileTypeDetection";
 
 const App = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
-  const [language, setLanguage] = useState("js");
-  const [code, setCode] = useState("// start coding here...");
+  const [language, setLanguage] = useState("javascript");
+  const [code, setCode] = useState("// Welcome to the collaborative code editor\n// Start coding here...");
   const [copySuccess, setCopySuccess] = useState("");
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [filename, setFilename] = useState("untitled.js");
+  const [pendingFilename, setPendingFilename] = useState("");
+  const [showAllLanguages, setShowAllLanguages] = useState(false);
   const [undoRedoState, setUndoRedoState] = useState({
     canUndo: false,
     canRedo: false,
@@ -27,6 +39,10 @@ const App = () => {
   const [isUndoing, setIsUndoing] = useState(false);
   const [isRedoing, setIsRedoing] = useState(false);
   const [isCreatingCheckpoint, setIsCreatingCheckpoint] = useState(false);
+  
+  // Resizable panel states
+  const [isChatDetached, setIsChatDetached] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
 
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
 
@@ -103,6 +119,13 @@ const App = () => {
       if (error.type === "redo") setIsRedoing(false);
       if (error.type === "checkpoint") setIsCreatingCheckpoint(false);
     });
+    socket.on("filenameChanged", ({ oldFilename, newFilename, userName }) => {
+      setFilename(newFilename);
+      setChatMessages((prev) => [
+        ...prev,
+        { userName: "System", message: `Filename changed from \"${oldFilename}\" to \"${newFilename}\" by ${userName}` }
+      ]);
+    });
 
     return () => {
       socket.off();
@@ -142,10 +165,12 @@ const App = () => {
     setJoined(false);
     setRoomId("");
     setUserName("");
-    setCode("// start coding here...");
+    setCode("// Welcome to the collaborative code editor\n// Start coding here...");
     setUsers([]);
     setTyping("");
-    setLanguage("js");
+    setLanguage("javascript");
+    setFilename("untitled.js");
+    setShowAllLanguages(false);
     setChatMessages([]);
     setChatInput("");
   };
@@ -180,6 +205,32 @@ const App = () => {
     const newLanguage = e.target.value;
     setLanguage(newLanguage);
     socket.emit("languageChange", { roomId, language: newLanguage });
+  };
+
+  const handleFilenameChange = (e) => {
+    setPendingFilename(e.target.value);
+  };
+
+  const saveFilenameChange = () => {
+    if (!pendingFilename || pendingFilename === filename) return;
+    const oldFilename = filename;
+    setFilename(pendingFilename);
+    // Auto-detect language from filename
+    const detectedLanguage = detectFileType(pendingFilename);
+    if (detectedLanguage && detectedLanguage !== language && isLanguageSupported(detectedLanguage)) {
+      setLanguage(detectedLanguage);
+      socket.emit("languageChange", { roomId, language: detectedLanguage });
+    }
+    socket.emit("filenameChange", { roomId, oldFilename, newFilename: pendingFilename, userName });
+    setPendingFilename("");
+  };
+
+  const handleManualLanguageChange = (e) => {
+    const newLanguage = e.target.value;
+    setLanguage(newLanguage);
+    socket.emit("languageChange", { roomId, language: newLanguage });
+    
+    // Don't update filename automatically to avoid conflicts
   };
 
   const handleUndo = useCallback(() => {
@@ -230,6 +281,17 @@ const App = () => {
     setChatInput("");
   };
 
+  const handleChatDetach = (detached) => {
+    setIsChatDetached(detached);
+    if (!detached) {
+      setIsChatMinimized(false); // Expand when bringing back
+    }
+  };
+
+  const handleChatMinimize = (minimized) => {
+    setIsChatMinimized(minimized);
+  };
+
   if (!joined) {
     return (
       <div className="join-container">
@@ -254,138 +316,216 @@ const App = () => {
   }
 
   return (
-    <div className="editor-container">
-      <div className="sidebar">
-        <button onClick={toggleTheme} className="theme-toggle-btn">
-          {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
-        </button>
-        <div className="room-info">
-          <h2>Code Room: {roomId}</h2>
-          <button onClick={copyRoomId}> Copy Id</button>
-          {copySuccess && <span className="copy-success">{copySuccess}</span>}
-        </div>
-        <h3>Users in Room:</h3>
-        <ul>
-          {users.map((user, index) => (
-            <li key={index}>{user.slice(0, 8)}</li>
-          ))}
-        </ul>
-        <p className="typing-indicator">{typing}</p>
-        <select
-          className="language-selector"
-          value={language}
-          onChange={handleLanguageChange}
-        >
-          <option value="js">js</option>
-          <option value="python">python</option>
-          <option value="java">java</option>
-        </select>
-        <button className="leave-button" onClick={leaveRoom}>
-          Leave Room
-        </button>
-
-        <div className="version-controls">
-          <h3>Version History</h3>
-          <div className="version-buttons">
-            <button
-              className={`version-btn undo-btn ${
-                !undoRedoState.canUndo || isUndoing ? "disabled" : ""
-              } ${isUndoing ? "loading" : ""}`}
-              onClick={handleUndo}
-              disabled={!undoRedoState.canUndo || isUndoing}
-              title="Undo (Ctrl+Z)"
-            >
-              {isUndoing ? "Undoing..." : "Undo"}
+    <>
+      <ResizableLayout
+        sidebar={
+          <div className="sidebar">
+            <button onClick={toggleTheme} className="theme-toggle-btn">
+              {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
             </button>
-            <button
-              className={`version-btn redo-btn ${
-                !undoRedoState.canRedo || isRedoing ? "disabled" : ""
-              } ${isRedoing ? "loading" : ""}`}
-              onClick={handleRedo}
-              disabled={!undoRedoState.canRedo || isRedoing}
-              title="Redo (Ctrl+Y)"
-            >
-              {isRedoing ? "Redoing..." : "Redo"}
-            </button>
-          </div>
-          <div className="version-info">
-            <span className="version-count">
-              {undoRedoState.currentVersionIndex + 1} /{" "}
-              {undoRedoState.totalVersions}
-            </span>
-          </div>
-          <button
-            className="version-btn history-btn"
-            onClick={() => setShowVersionHistory(true)}
-            title="View version history"
-          >
-            History
-          </button>
-          <button
-            className={`version-btn checkpoint-btn ${
-              isCreatingCheckpoint ? "loading" : ""
-            }`}
-            onClick={createCheckpoint}
-            disabled={isCreatingCheckpoint}
-            title="Create checkpoint"
-          >
-            {isCreatingCheckpoint ? "Creating..." : "Checkpoint"}
-          </button>
-        </div>
-      </div>
-
-      <div className="editor-wrapper">
-        <Editor
-          height={"100%"}
-          defaultLanguage={language}
-          language={language}
-          value={code}
-          onChange={handleChange}
-          theme="vs-dark"
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-          }}
-        />
-        <VideoCall
-          socket={socket}
-          roomId={roomId}
-          userName={userName}
-          joined={joined}
-        />
-      </div>
-
-      <div className="chat-panel">
-        <div className="chat-messages">
-          {chatMessages.map((msg, idx) => (
-            <div key={idx} className="chat-message">
-              <span className="chat-user">{msg.userName.slice(0, 8)}:</span>{" "}
-              {msg.message}
+            <div className="room-info">
+              <h2>Code Room: {roomId}</h2>
+              <button onClick={copyRoomId}> Copy Id</button>
+              {copySuccess && <span className="copy-success">{copySuccess}</span>}
             </div>
-          ))}
-        </div>
-        <form className="chat-input-form" onSubmit={sendChatMessage}>
-          <input
-            className="chat-input"
-            type="text"
-            placeholder="Type a message..."
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            maxLength={200}
-          />
-          <button type="submit" className="chat-send-btn">
-            Send
-          </button>
-        </form>
-      </div>
+            <h3>Users in Room:</h3>
+            <ul>
+              {users.map((user, index) => (
+                <li key={index}>{user.slice(0, 8)}</li>
+              ))}
+            </ul>
+            <p className="typing-indicator">{typing}</p>
+            
+            <div className="file-controls">
+              <h3>File & Language</h3>
+              <div className="filename-input-group">
+                <label htmlFor="filename">Filename:</label>
+                <input
+                  id="filename"
+                  type="text"
+                  className="filename-input"
+                  value={pendingFilename || filename}
+                  onChange={handleFilenameChange}
+                  placeholder="e.g., main.js, script.py"
+                />
+                <button onClick={saveFilenameChange} className="save-filename-btn">Save Filename</button>
+              </div>
+              
+              <div className="language-selector-group">
+                <label htmlFor="language">Language:</label>
+                <select
+                  id="language"
+                  className="language-selector"
+                  value={language}
+                  onChange={handleManualLanguageChange}
+                >
+                  <optgroup label="Popular Languages">
+                    {getPopularLanguages().map((lang) => (
+                      <option key={lang.id} value={lang.id}>
+                        {lang.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {showAllLanguages && (
+                    <optgroup label="All Languages">
+                      {getAllSupportedLanguages()
+                        .filter(lang => !getPopularLanguages().some(popular => popular.id === lang.id))
+                        .map((lang) => (
+                          <option key={lang.id} value={lang.id}>
+                            {lang.name}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                </select>
+                <button 
+                  type="button"
+                  className="show-all-languages-btn"
+                  onClick={() => setShowAllLanguages(!showAllLanguages)}
+                >
+                  {showAllLanguages ? "Show Less" : "Show All"}
+                </button>
+              </div>
+              
+              <div className="language-info">
+                <small>
+                  Current: <strong>{getLanguageDisplayName(language)}</strong>
+                </small>
+              </div>
+            </div>
+            <button className="leave-button" onClick={leaveRoom}>
+              Leave Room
+            </button>
 
+            <div className="version-controls">
+              <h3>Version History</h3>
+              <div className="version-buttons">
+                <button
+                  className={`version-btn undo-btn ${
+                    !undoRedoState.canUndo || isUndoing ? "disabled" : ""
+                  } ${isUndoing ? "loading" : ""}`}
+                  onClick={handleUndo}
+                  disabled={!undoRedoState.canUndo || isUndoing}
+                  title="Undo (Ctrl+Z)"
+                >
+                  {isUndoing ? "Undoing..." : "Undo"}
+                </button>
+                <button
+                  className={`version-btn redo-btn ${
+                    !undoRedoState.canRedo || isRedoing ? "disabled" : ""
+                  } ${isRedoing ? "loading" : ""}`}
+                  onClick={handleRedo}
+                  disabled={!undoRedoState.canRedo || isRedoing}
+                  title="Redo (Ctrl+Y)"
+                >
+                  {isRedoing ? "Redoing..." : "Redo"}
+                </button>
+              </div>
+              <div className="version-info">
+                <span className="version-count">
+                  {undoRedoState.currentVersionIndex + 1} /{" "}
+                  {undoRedoState.totalVersions}
+                </span>
+              </div>
+              <button
+                className="version-btn history-btn"
+                onClick={() => setShowVersionHistory(true)}
+                title="View version history"
+              >
+                History
+              </button>
+              <button
+                className={`version-btn checkpoint-btn ${
+                  isCreatingCheckpoint ? "loading" : ""
+                }`}
+                onClick={createCheckpoint}
+                disabled={isCreatingCheckpoint}
+                title="Create checkpoint"
+              >
+                {isCreatingCheckpoint ? "Creating..." : "Checkpoint"}
+              </button>
+            </div>
+          </div>
+        }
+        editor={
+          <div className="editor-wrapper">
+            <Editor
+              height={"100%"}
+              defaultLanguage={language}
+              language={language}
+              value={code}
+              onChange={handleChange}
+              theme={theme === "dark" ? "vs-dark" : "vs-light"}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+              }}
+            />
+            <VideoCall
+              socket={socket}
+              roomId={roomId}
+              userName={userName}
+              joined={joined}
+            />
+          </div>
+        }
+        chatPanel={
+          <div className="chat-panel-content">
+            <div className="chat-messages">
+              {chatMessages.map((msg, idx) => (
+                <div key={idx} className="chat-message">
+                  <span className="chat-user">{msg.userName.slice(0, 8)}:</span>{" "}
+                  {msg.message}
+                </div>
+              ))}
+            </div>
+            <form className="chat-input-form" onSubmit={sendChatMessage}>
+              <input
+                className="chat-input"
+                type="text"
+                placeholder="Type a message..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                maxLength={200}
+              />
+              <button type="submit" className="chat-send-btn">
+                Send
+              </button>
+            </form>
+          </div>
+        }
+        onChatDetach={handleChatDetach}
+        isChatDetached={isChatDetached}
+        onChatMinimize={handleChatMinimize}
+        isChatMinimized={isChatMinimized}
+        chatMessages={chatMessages}
+        chatInput={chatInput}
+        setChatInput={setChatInput}
+        sendChatMessage={sendChatMessage}
+        socket={socket}
+        roomId={roomId}
+        userName={userName}
+      />
+      
+      {/* Detached Chat Window */}
+      {isChatDetached && (
+        <ChatWindow
+          chatMessages={chatMessages}
+          chatInput={chatInput}
+          setChatInput={setChatInput}
+          sendChatMessage={sendChatMessage}
+          onClose={() => setIsChatDetached(false)}
+        />
+      )}
+
+      {/* Version History Modal */}
       <VersionHistory
         socket={socket}
         roomId={roomId}
         isOpen={showVersionHistory}
         onClose={() => setShowVersionHistory(false)}
       />
-    </div>
+    </>
   );
 };
 

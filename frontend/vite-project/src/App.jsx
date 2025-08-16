@@ -7,6 +7,7 @@ import VideoCall from "./VideoCall";
 import VersionHistory from "./VersionHistory";
 import ResizableLayout from "./components/ResizableLayout";
 import ChatWindow from "./components/ChatWindow";
+import LandingPage from "./components/LandingPage";
 import { 
   detectFileType, 
   getLanguageDisplayName, 
@@ -16,9 +17,17 @@ import {
 } from "./utils/fileTypeDetection";
 
 const App = () => {
-  const [joined, setJoined] = useState(false);
-  const [roomId, setRoomId] = useState("");
-  const [userName, setUserName] = useState("");
+  // Initialize state from localStorage if available
+  const [joined, setJoined] = useState(() => {
+    const savedJoined = localStorage.getItem('codeEditor_joined');
+    return savedJoined === 'true';
+  });
+  const [roomId, setRoomId] = useState(() => {
+    return localStorage.getItem('codeEditor_roomId') || "";
+  });
+  const [userName, setUserName] = useState(() => {
+    return localStorage.getItem('codeEditor_userName') || "";
+  });
   const [language, setLanguage] = useState("js");
   const [code, setCode] = useState("");
   const [copySuccess, setCopySuccess] = useState("");
@@ -58,6 +67,19 @@ const App = () => {
       document.body.classList.add("light-mode");
     }
   }, []);
+
+  // Auto-rejoin room on page reload if user was previously in a room
+  useEffect(() => {
+    if (joined && roomId && userName) {
+      // Rejoin the room after a short delay to ensure socket connection is ready
+      const rejoinTimer = setTimeout(() => {
+        socket.emit("join_room", { roomId, userName });
+        socket.emit("getUndoRedoState", { roomId });
+      }, 1000);
+      
+      return () => clearTimeout(rejoinTimer);
+    }
+  }, [joined, roomId, userName]);
 
   const toggleTheme = () => {
     if (theme === "dark") {
@@ -135,35 +157,45 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const handleBeforeUnload = () => socket.emit("leaveRoom");
+    const handleBeforeUnload = () => {
+      socket.emit("leaveRoom");
+      // Only clear localStorage if user explicitly closes the tab/browser
+      // Don't clear on page refresh
+    };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
-  const joinRoom = () => {
-    if (!roomId || !userName)
+  const joinRoom = (roomIdParam, userNameParam) => {
+    const finalRoomId = roomIdParam || roomId;
+    const finalUserName = userNameParam || userName;
+    
+    if (!finalRoomId || !finalUserName)
       return alert("Please enter both Room Id and Your Name");
-    socket.emit("join_room", { roomId, userName });
+    
+    // Save to localStorage
+    localStorage.setItem('codeEditor_roomId', finalRoomId);
+    localStorage.setItem('codeEditor_userName', finalUserName);
+    localStorage.setItem('codeEditor_joined', 'true');
+    
+    setRoomId(finalRoomId);
+    setUserName(finalUserName);
+    socket.emit("join_room", { roomId: finalRoomId, userName: finalUserName });
     setJoined(true);
 
     setTimeout(() => {
-      socket.emit("getUndoRedoState", { roomId });
+      socket.emit("getUndoRedoState", { roomId: finalRoomId });
     }, 1000);
-
-    if (roomId && userName) {
-      socket.emit("join_room", { roomId, userName });
-      setJoined(true);
-
-      setTimeout(() => {
-        socket.emit("getUndoRedoState", { roomId });
-      }, 1000);
-    } else {
-      alert("Please enter both Room Id and Your Name");
-    }
   };
 
   const leaveRoom = () => {
     socket.emit("leaveRoom");
+    
+    // Clear localStorage
+    localStorage.removeItem('codeEditor_roomId');
+    localStorage.removeItem('codeEditor_userName');
+    localStorage.removeItem('codeEditor_joined');
+    
     setJoined(false);
     setRoomId("");
     setUserName("");
@@ -310,26 +342,7 @@ const App = () => {
   };
 
   if (!joined) {
-    return (
-      <div className="join-container">
-        <div className="join-form">
-          <h1>Join Code Room</h1>
-          <input
-            type="text"
-            placeholder="Room Id"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Your Name"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-          />
-          <button onClick={joinRoom}>Join Room</button>
-        </div>
-      </div>
-    );
+    return <LandingPage onJoinRoom={joinRoom} />;
   }
 
     return (

@@ -21,6 +21,7 @@ import {
   getAllSupportedLanguages,
   isLanguageSupported 
 } from "./utils/fileTypeDetection";
+import * as monaco from 'monaco-editor';
 
 const App = () => {
   const [joined, setJoined] = useState(false);
@@ -109,15 +110,16 @@ const App = () => {
     socket.on("filesUpdated", ({ files: newFiles, activeFile: newActiveFile }) => {
       setFiles(newFiles);
       setActiveFile(newActiveFile);
-      
       // Update current file content and language
       const currentFile = newFiles.find(f => f.filename === newActiveFile);
       if (currentFile) {
         setCurrentFileContent(currentFile.code);
-        setCurrentFileLanguage(currentFile.language);
+        const detectedLang = detectFileType(currentFile.filename);
+        setCurrentFileLanguage(detectedLang);
         setCode(currentFile.code);
-        setLanguage(currentFile.language);
+        setLanguage(detectedLang);
         setFilename(currentFile.filename);
+        console.log('[DEBUG] File switched:', currentFile.filename, 'Detected language:', detectedLang);
       }
     });
 
@@ -513,8 +515,131 @@ const App = () => {
 
   const handleEditorOnMount = (editor, monaco) => {
     const placeholderEl = document.querySelector('.monaco-placeholder');
-    placeholderEl.style.display = 'block';
+    if (placeholderEl) placeholderEl.style.display = 'block';
     editor.focus();
+
+    // Debug: Log current language
+    console.log('[DEBUG] Editor language:', editor.getModel().getLanguageId());
+
+    // Register C++ completion provider
+    if (monaco.languages && monaco.languages.registerCompletionItemProvider) {
+      console.log('[DEBUG] Registering C++ completion provider');
+      monaco.languages.registerCompletionItemProvider('cpp', {
+        provideCompletionItems: function(model, position) {
+          const word = model.getWordUntilPosition(position);
+          console.log('[DEBUG] Completion requested for word:', word);
+          const suggestions = [
+            {
+              label: '#incl',
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: '#include',
+              detail: 'C++ include directive',
+            },
+            {
+              label: 'int',
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: 'int',
+              detail: 'C++ int type',
+            },
+            {
+              label: 'main',
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: 'main()',
+              detail: 'C++ main function',
+            },
+            {
+              label: 'std',
+              kind: monaco.languages.CompletionItemKind.Module,
+              insertText: 'std',
+              detail: 'C++ Standard Library namespace',
+            },
+            {
+              label: 'cout',
+              kind: monaco.languages.CompletionItemKind.Variable,
+              insertText: 'cout',
+              detail: 'C++ output stream',
+            },
+            {
+              label: 'cin',
+              kind: monaco.languages.CompletionItemKind.Variable,
+              insertText: 'cin',
+              detail: 'C++ input stream',
+            },
+            {
+              label: 'return',
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: 'return',
+              detail: 'C++ return statement',
+            },
+            {
+              label: 'void',
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: 'void',
+              detail: 'C++ void type',
+            },
+            {
+              label: 'double',
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: 'double',
+              detail: 'C++ double type',
+            },
+            {
+              label: 'float',
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: 'float',
+              detail: 'C++ float type',
+            },
+              // C++ for loop
+              {
+                label: 'for',
+                kind: monaco.languages.CompletionItemKind.Keyword,
+                insertText: 'for (int i = 0; i < n; ++i) {\n    // ...\n}',
+                detail: 'C++ for loop',
+              },
+              // C++ while loop
+              {
+                label: 'while',
+                kind: monaco.languages.CompletionItemKind.Keyword,
+                insertText: 'while (condition) {\n    // ...\n}',
+                detail: 'C++ while loop',
+              },
+              // C++ STL vector
+              {
+                label: 'vector',
+                kind: monaco.languages.CompletionItemKind.Class,
+                insertText: 'std::vector<int> v;',
+                detail: 'C++ STL vector',
+              },
+              // C++ STL map
+              {
+                label: 'map',
+                kind: monaco.languages.CompletionItemKind.Class,
+                insertText: 'std::map<int, int> m;',
+                detail: 'C++ STL map',
+              },
+              // C++ STL set
+              {
+                label: 'set',
+                kind: monaco.languages.CompletionItemKind.Class,
+                insertText: 'std::set<int> s;',
+                detail: 'C++ STL set',
+              },
+              // C++ STL unordered_map
+              {
+                label: 'unordered_map',
+                kind: monaco.languages.CompletionItemKind.Class,
+                insertText: 'std::unordered_map<int, int> um;',
+                detail: 'C++ STL unordered_map',
+              },
+            // Add more suggestions as needed
+          ];
+          console.log('[DEBUG] Suggestions returned:', suggestions);
+          return { suggestions };
+        }
+      });
+    } else {
+      console.log('[DEBUG] Monaco completion provider API not available');
+    }
   };
 
    const handleJoinFromLanding = (newRoomId, newUserName) => {

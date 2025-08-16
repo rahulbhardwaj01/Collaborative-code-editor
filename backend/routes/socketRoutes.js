@@ -15,13 +15,68 @@ class SocketRoutes {
 
     io.on("connection", (socket) => {
       console.log("A user connected", socket.id);
-        // Filename change event
-        socket.on("filenameChange", (data) => {
-          const result = this.roomController.handleFilenameChange(socket, data);
-          if (!result.success) {
-            console.error('Filename change error:', result.error);
-          }
-        });
+      
+      // File management events
+      socket.on("createFile", (data) => {
+        const result = this.roomController.handleCreateFile(socket, data);
+        if (!result.success) {
+          console.error('Create file error:', result.error);
+          socket.emit("error", { type: "createFile", message: result.error });
+        }
+      });
+
+      socket.on("deleteFile", (data) => {
+        const result = this.roomController.handleDeleteFile(socket, data);
+        if (!result.success) {
+          console.error('Delete file error:', result.error);
+          socket.emit("error", { type: "deleteFile", message: result.error });
+        }
+      });
+
+      socket.on("renameFile", (data) => {
+        const result = this.roomController.handleRenameFile(socket, data);
+        if (!result.success) {
+          console.error('Rename file error:', result.error);
+          socket.emit("error", { type: "renameFile", message: result.error });
+        }
+      });
+
+      socket.on("switchFile", (data) => {
+        const result = this.roomController.handleSwitchFile(socket, data);
+        if (!result.success) {
+          console.error('Switch file error:', result.error);
+          socket.emit("error", { type: "switchFile", message: result.error });
+        }
+      });
+
+      socket.on("getFiles", (data) => {
+        const result = this.roomController.handleGetFiles(socket, data);
+        if (!result.success) {
+          console.error('Get files error:', result.error);
+        }
+      });
+
+      socket.on("fileCodeChange", (data) => {
+        const result = this.roomController.handleFileCodeChange(socket, data);
+        if (!result.success) {
+          console.error('File code change error:', result.error);
+        }
+      });
+
+      socket.on("fileLanguageChange", (data) => {
+        const result = this.roomController.handleFileLanguageChange(socket, data);
+        if (!result.success) {
+          console.error('File language change error:', result.error);
+        }
+      });
+
+      // Legacy filename change event
+      socket.on("filenameChange", (data) => {
+        const result = this.roomController.handleFilenameChange(socket, data);
+        if (!result.success) {
+          console.error('Filename change error:', result.error);
+        }
+      });
 
       // Room-related events
       socket.on("join_room", (data) => {

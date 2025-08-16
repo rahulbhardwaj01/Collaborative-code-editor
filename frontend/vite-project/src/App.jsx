@@ -7,6 +7,7 @@ import VideoCall from "./VideoCall";
 import VersionHistory from "./VersionHistory";
 import ResizableLayout from "./components/ResizableLayout";
 import ChatWindow from "./components/ChatWindow";
+import FileExplorer from "./components/FileExplorer";
 import LandingPage from "./pages/Landing_page";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -25,16 +26,25 @@ const App = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
-  const [language, setLanguage] = useState("js");
+  
+  // File management state
+  const [files, setFiles] = useState([]);
+  const [activeFile, setActiveFile] = useState("");
+  const [currentFileContent, setCurrentFileContent] = useState("");
+  const [currentFileLanguage, setCurrentFileLanguage] = useState("javascript");
+  
+  // Legacy state for backward compatibility
+  const [language, setLanguage] = useState("javascript");
   const [code, setCode] = useState("");
+  const [filename, setFilename] = useState("untitled.js");
+  const [pendingFilename, setPendingFilename] = useState("");
+  
   const [copySuccess, setCopySuccess] = useState("");
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [showVersionHistory, setShowVersionHistory] = useState(false);
-  const [filename, setFilename] = useState("untitled.js");
-  const [pendingFilename, setPendingFilename] = useState("");
   const [showAllLanguages, setShowAllLanguages] = useState(false);
   const [undoRedoState, setUndoRedoState] = useState({
     canUndo: false,
@@ -51,7 +61,6 @@ const App = () => {
   const [isChatMinimized, setIsChatMinimized] = useState(false);
 
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
-
   const [theme, setTheme] = useState("dark");
 
   const placeholderText = '  Start typing here...';
@@ -78,20 +87,131 @@ const App = () => {
   };
 
   useEffect(() => {
+    // User and room events
     socket.on("userJoined", (users) => setUsers(users));
-    socket.on("codeUpdated", (newCode) => setCode(newCode));
+    socket.on("codeUpdated", (newCode) => {
+      setCode(newCode);
+      setCurrentFileContent(newCode);
+    });
     socket.on("userTyping", (user) => {
       setTyping(`${user.slice(0, 8)} is typing...`);
       setTimeout(() => setTyping(""), 3000);
     });
-    socket.on("languageUpdated", (newLanguage) => setLanguage(newLanguage));
+    socket.on("languageUpdated", (newLanguage) => {
+      setLanguage(newLanguage);
+      setCurrentFileLanguage(newLanguage);
+    });
     socket.on("chatMessage", ({ userName, message }) =>
       setChatMessages((prev) => [...prev, { userName, message }])
     );
+    
+    // File management events
+    socket.on("filesUpdated", ({ files: newFiles, activeFile: newActiveFile }) => {
+      setFiles(newFiles);
+      setActiveFile(newActiveFile);
+      
+      // Update current file content and language
+      const currentFile = newFiles.find(f => f.filename === newActiveFile);
+      if (currentFile) {
+        setCurrentFileContent(currentFile.code);
+        setCurrentFileLanguage(currentFile.language);
+        setCode(currentFile.code);
+        setLanguage(currentFile.language);
+        setFilename(currentFile.filename);
+      }
+    });
+
+    socket.on("fileCreated", ({ file, createdBy }) => {
+      setFiles(prev => [...prev, file]);
+      setChatMessages((prev) => [...prev, { 
+        userName: "System", 
+        message: `File "${file.filename}" created by ${createdBy}` 
+      }]);
+    });
+
+    socket.on("fileDeleted", ({ filename, deletedBy, newActiveFile }) => {
+      setFiles(prev => prev.filter(f => f.filename !== filename));
+      
+      if (newActiveFile && newActiveFile !== activeFile) {
+        setActiveFile(newActiveFile);
+        // Request file content update
+        socket.emit("switchFile", { roomId, filename: newActiveFile, switchedBy: userName });
+      }
+      
+      setChatMessages((prev) => [...prev, { 
+        userName: "System", 
+        message: `File "${filename}" deleted by ${deletedBy}` 
+      }]);
+    });
+
+    socket.on("fileRenamed", ({ oldFilename, newFilename, renamedBy }) => {
+      setFiles(prev => prev.map(f => 
+        f.filename === oldFilename 
+          ? { ...f, filename: newFilename }
+          : f
+      ));
+      
+      if (activeFile === oldFilename) {
+        setActiveFile(newFilename);
+        setFilename(newFilename);
+      }
+      
+      setChatMessages((prev) => [...prev, { 
+        userName: "System", 
+        message: `File renamed from "${oldFilename}" to "${newFilename}" by ${renamedBy}` 
+      }]);
+    });
+
+    socket.on("activeFileChanged", ({ filename, file, switchedBy }) => {
+      setActiveFile(filename);
+      setCurrentFileContent(file.code);
+      setCurrentFileLanguage(file.language);
+      setCode(file.code);
+      setLanguage(file.language);
+      setFilename(filename);
+      
+      // Update files state to reflect active status
+      setFiles(prev => prev.map(f => ({ 
+        ...f, 
+        isActive: f.filename === filename 
+      })));
+    });
+
+    socket.on("fileCodeUpdated", ({ filename, code: newCode }) => {
+      if (filename === activeFile) {
+        setCurrentFileContent(newCode);
+        setCode(newCode);
+      }
+      
+      // Update the file in files array
+      setFiles(prev => prev.map(f => 
+        f.filename === filename 
+          ? { ...f, code: newCode }
+          : f
+      ));
+    });
+
+    socket.on("fileLanguageUpdated", ({ filename, language: newLanguage }) => {
+      if (filename === activeFile) {
+        setCurrentFileLanguage(newLanguage);
+        setLanguage(newLanguage);
+      }
+      
+      // Update the file in files array
+      setFiles(prev => prev.map(f => 
+        f.filename === filename 
+          ? { ...f, language: newLanguage }
+          : f
+      ));
+    });
+
+    // Version history events
     socket.on("versionAdded", (data) => setUndoRedoState(data.undoRedoState));
     socket.on("codeReverted", (data) => {
       setCode(data.code);
       setLanguage(data.language);
+      setCurrentFileContent(data.code);
+      setCurrentFileLanguage(data.language);
       setUndoRedoState(data.undoRedoState);
       setIsUndoing(false);
       setIsRedoing(false);
@@ -126,19 +246,25 @@ const App = () => {
       if (error.type === "undo") setIsUndoing(false);
       if (error.type === "redo") setIsRedoing(false);
       if (error.type === "checkpoint") setIsCreatingCheckpoint(false);
+      if (error.type === "createFile") alert(`Error creating file: ${error.message}`);
+      if (error.type === "deleteFile") alert(`Error deleting file: ${error.message}`);
+      if (error.type === "renameFile") alert(`Error renaming file: ${error.message}`);
+      if (error.type === "switchFile") alert(`Error switching file: ${error.message}`);
     });
-    socket.on("filenameChanged", ({ oldFilename, newFilename, userName }) => {
+    
+    // Legacy filename change event for backward compatibility
+    socket.on("filenameChanged", ({ oldFilename, newFilename, userName: changedBy }) => {
       setFilename(newFilename);
       setChatMessages((prev) => [
         ...prev,
-        { userName: "System", message: `Filename changed from \"${oldFilename}\" to \"${newFilename}\" by ${userName}` }
+        { userName: "System", message: `Filename changed from "${oldFilename}" to "${newFilename}" by ${changedBy}` }
       ]);
     });
 
     return () => {
       socket.off();
     };
-  }, []);
+  }, [roomId, userName, activeFile]);
 
   useEffect(() => {
     const handleBeforeUnload = () => socket.emit("leaveRoom");
@@ -168,16 +294,60 @@ const App = () => {
     }
   };
 
+  // File management functions
+  const handleFileCreate = (filename, createdBy, code = '', language = 'javascript') => {
+    socket.emit("createFile", { 
+      roomId, 
+      filename, 
+      createdBy, 
+      code, 
+      language 
+    });
+  };
+
+  const handleFileDelete = (filename, deletedBy) => {
+    socket.emit("deleteFile", { 
+      roomId, 
+      filename, 
+      deletedBy 
+    });
+  };
+
+  const handleFileRename = (oldFilename, newFilename) => {
+    if (!newFilename || newFilename === oldFilename) return;
+    
+    socket.emit("renameFile", { 
+      roomId, 
+      oldFilename, 
+      newFilename, 
+      renamedBy: userName 
+    });
+  };
+
+  const handleFileSwitch = (filename, switchedBy) => {
+    if (filename === activeFile) return;
+    
+    socket.emit("switchFile", { 
+      roomId, 
+      filename, 
+      switchedBy 
+    });
+  };
+
   const leaveRoom = () => {
     socket.emit("leaveRoom");
     setJoined(false);
     setRoomId("");
     setUserName("");
     setCode("// Welcome to the collaborative code editor\n// Start coding here...");
+    setCurrentFileContent("// Welcome to the collaborative code editor\n// Start coding here...");
     setUsers([]);
     setTyping("");
     setLanguage("javascript");
+    setCurrentFileLanguage("javascript");
     setFilename("untitled.js");
+    setActiveFile("");
+    setFiles([]);
     setShowAllLanguages(false);
     setChatMessages([]);
     setChatInput("");
@@ -201,6 +371,7 @@ const App = () => {
     }
 
     setCode(newCode);
+    setCurrentFileContent(newCode);
 
     // clear existing timeout if any
     if (codeChangeTimeout) {
@@ -208,7 +379,13 @@ const App = () => {
     }
 
     const newTimeout = window.setTimeout(() => {
-      socket.emit('codeChange', { roomId, code: newCode });
+      // Use new file-specific code change event if active file exists
+      if (activeFile) {
+        socket.emit('fileCodeChange', { roomId, filename: activeFile, code: newCode });
+      } else {
+        // Fallback to legacy method
+        socket.emit('codeChange', { roomId, code: newCode });
+      }
     }, 500);
 
     setCodeChangeTimeout(newTimeout);
@@ -218,34 +395,59 @@ const App = () => {
   };
 
 
-  const handleLanguageChange = (e) => {
-    const newLanguage = e.target.value;
-    setLanguage(newLanguage);
-    socket.emit("languageChange", { roomId, language: newLanguage });
-  };
-
+  // Legacy filename change functions for backward compatibility
   const handleFilenameChange = (e) => {
     setPendingFilename(e.target.value);
   };
 
   const saveFilenameChange = () => {
     if (!pendingFilename || pendingFilename === filename) return;
-    const oldFilename = filename;
-    setFilename(pendingFilename);
-    // Auto-detect language from filename
-    const detectedLanguage = detectFileType(pendingFilename);
-    if (detectedLanguage && detectedLanguage !== language && isLanguageSupported(detectedLanguage)) {
-      setLanguage(detectedLanguage);
-      socket.emit("languageChange", { roomId, language: detectedLanguage });
+    
+    if (activeFile) {
+      // Use new file rename functionality
+      handleFileRename(activeFile, pendingFilename);
+    } else {
+      // Fallback to legacy method
+      const oldFilename = filename;
+      setFilename(pendingFilename);
+      // Auto-detect language from filename
+      const detectedLanguage = detectFileType(pendingFilename);
+      if (detectedLanguage && detectedLanguage !== language && isLanguageSupported(detectedLanguage)) {
+        setLanguage(detectedLanguage);
+        setCurrentFileLanguage(detectedLanguage);
+        socket.emit("languageChange", { roomId, language: detectedLanguage });
+      }
+      socket.emit("filenameChange", { roomId, oldFilename, newFilename: pendingFilename, userName });
     }
-    socket.emit("filenameChange", { roomId, oldFilename, newFilename: pendingFilename, userName });
     setPendingFilename("");
+  };
+
+  const handleLanguageChange = (e) => {
+    const newLanguage = e.target.value;
+    setLanguage(newLanguage);
+    setCurrentFileLanguage(newLanguage);
+    
+    // Use new file-specific language change event if active file exists
+    if (activeFile) {
+      socket.emit("fileLanguageChange", { roomId, filename: activeFile, language: newLanguage });
+    } else {
+      // Fallback to legacy method
+      socket.emit("languageChange", { roomId, language: newLanguage });
+    }
   };
 
   const handleManualLanguageChange = (e) => {
     const newLanguage = e.target.value;
     setLanguage(newLanguage);
-    socket.emit("languageChange", { roomId, language: newLanguage });
+    setCurrentFileLanguage(newLanguage);
+    
+    // Use new file-specific language change event if active file exists
+    if (activeFile) {
+      socket.emit("fileLanguageChange", { roomId, filename: activeFile, language: newLanguage });
+    } else {
+      // Fallback to legacy method
+      socket.emit("languageChange", { roomId, language: newLanguage });
+    }
     
     // Don't update filename automatically to avoid conflicts
   };
@@ -355,10 +557,21 @@ const App = () => {
             </ul>
             <p className="typing-indicator">{typing}</p>
             
+            {/* File Explorer Component */}
+            <FileExplorer
+              files={files}
+              activeFile={activeFile}
+              onFileCreate={handleFileCreate}
+              onFileDelete={handleFileDelete}
+              onFileRename={handleFileRename}
+              onFileSwitch={handleFileSwitch}
+              userName={userName}
+            />
+            
             <div className="file-controls">
-              <h3>File & Language</h3>
+              <h3>Current File Settings</h3>
               <div className="filename-input-group">
-                <label htmlFor="filename">Filename:</label>
+                <label htmlFor="filename">Active File:</label>
                 <input
                   id="filename"
                   type="text"
@@ -367,7 +580,7 @@ const App = () => {
                   onChange={handleFilenameChange}
                   placeholder="e.g., main.js, script.py"
                 />
-                <button onClick={saveFilenameChange} className="save-filename-btn">Save Filename</button>
+                <button onClick={saveFilenameChange} className="save-filename-btn">Rename</button>
               </div>
               
               <div className="language-selector-group">
@@ -468,11 +681,21 @@ const App = () => {
         }
         editor={
           <div className="editor-wrapper">
+            <div className="editor-header">
+              <span className="current-file-indicator">
+                📄 {activeFile || filename} 
+                {activeFile && (
+                  <span className="file-language-badge">
+                    {getLanguageDisplayName(currentFileLanguage)}
+                  </span>
+                )}
+              </span>
+            </div>
             <Editor
-              height={"100%"}
-              defaultLanguage={language}
-              language={language}
-              value={code}
+              height={"calc(100% - 40px)"}
+              defaultLanguage={currentFileLanguage}
+              language={currentFileLanguage}
+              value={currentFileContent || code}
               onChange={handleChange}
               onMount={handleEditorOnMount}
               theme={theme === "dark" ? "vs-dark" : "vs-light"}

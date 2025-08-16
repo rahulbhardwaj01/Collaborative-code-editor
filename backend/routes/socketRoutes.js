@@ -15,6 +15,13 @@ class SocketRoutes {
 
     io.on("connection", (socket) => {
       console.log("A user connected", socket.id);
+        // Filename change event
+        socket.on("filenameChange", (data) => {
+          const result = this.roomController.handleFilenameChange(socket, data);
+          if (!result.success) {
+            console.error('Filename change error:', result.error);
+          }
+        });
 
       // Room-related events
       socket.on("join_room", (data) => {

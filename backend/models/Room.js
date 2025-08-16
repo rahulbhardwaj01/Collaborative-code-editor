@@ -10,6 +10,11 @@ class Room {
     this.messages = []; // Chat messages
     this.fileIdCounter = 0; // Counter for generating file IDs
     
+    // Legacy support for backward compatibility
+    this.code = '';
+    this.language = 'javascript';
+    this.filename = 'untitled.js';
+    
     // Create a default file
     this.createDefaultFile();
   }
@@ -31,6 +36,26 @@ class Room {
   // Generate unique file ID
   generateFileId() {
     return `file_${++this.fileIdCounter}_${Date.now()}`;
+  }
+
+  // Update filename in room (legacy support)
+  updateFilename(newFilename) {
+    this.filename = newFilename;
+    // Also update the active file if it exists
+    if (this.activeFileId) {
+      const activeFile = this.files.get(this.activeFileId);
+      if (activeFile) {
+        activeFile.name = newFilename;
+        activeFile.lastModified = new Date().toISOString();
+      }
+    }
+    return this.filename;
+  }
+
+  // Get current filename (legacy support)
+  getFilename() {
+    const activeFile = this.getActiveFile();
+    return activeFile ? activeFile.name : this.filename;
   }
 
   // Add user to room

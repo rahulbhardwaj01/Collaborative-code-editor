@@ -231,9 +231,9 @@
 
 .refresh-button {
   padding: 8px 16px;
-  border: 1px solid #28a745;
+  border: 1px solid var(--accent-color);
   border-radius: 4px;
-  background: #28a745;
+  background: var(--accent-color);
   color: white;
   cursor: pointer;
   font-size: 14px;
@@ -244,8 +244,8 @@
 }
 
 .refresh-button:hover {
-  background: #218838;
-  border-color: #1e7e34;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 /* Version Details Modal */
@@ -333,7 +333,7 @@
   padding: 15px;
   margin-top: 10px;
   white-space: pre-wrap;
-  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+  font-family: "Monaco", "Consolas", "Courier New", monospace;
   font-size: 12px;
   line-height: 1.4;
   max-height: 200px;
@@ -346,27 +346,27 @@
     width: 95%;
     height: 90%;
   }
-  
+
   .version-header {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .version-meta {
     flex-direction: column;
     gap: 4px;
     align-items: flex-start;
   }
-  
+
   .version-details {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .version-actions {
     justify-content: flex-end;
   }
-  
+
   .undo-redo-controls {
     flex-wrap: wrap;
     gap: 8px;

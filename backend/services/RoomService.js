@@ -2,6 +2,14 @@
 import Room from '../models/Room.js';
 
 class RoomService {
+  // Update filename in room
+  updateRoomFilename(roomId, newFilename) {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      return room.updateFilename(newFilename);
+    }
+    return null;
+  }
   constructor() {
     this.rooms = new Map(); // In-memory room storage
   }

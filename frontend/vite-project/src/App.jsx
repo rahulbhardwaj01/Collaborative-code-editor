@@ -21,9 +21,15 @@ const App = () => {
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
   
-  // File management state
+  // File management state (new multi-file support)
   const [files, setFiles] = useState([]);
   const [activeFileId, setActiveFileId] = useState(null);
+  
+  // Legacy state for backward compatibility
+  const [language, setLanguage] = useState("js");
+  const [code, setCode] = useState("");
+  const [filename, setFilename] = useState("untitled.js");
+  const [pendingFilename, setPendingFilename] = useState("");
   
   const [copySuccess, setCopySuccess] = useState("");
   const [users, setUsers] = useState([]);
@@ -50,25 +56,28 @@ const App = () => {
 
   const [theme, setTheme] = useState("dark");
 
-  // Helper functions
+  // Helper functions for multi-file support
   const getActiveFile = () => {
     return files.find(file => file.id === activeFileId) || null;
   };
 
   const getCurrentCode = () => {
     const activeFile = getActiveFile();
-    return activeFile ? activeFile.content : '';
+    return activeFile ? activeFile.content : code; // fallback to legacy code
   };
 
   const getCurrentLanguage = () => {
     const activeFile = getActiveFile();
-    return activeFile ? activeFile.language : 'javascript';
+    return activeFile ? activeFile.language : language; // fallback to legacy language
   };
 
   const getCurrentFilename = () => {
     const activeFile = getActiveFile();
-    return activeFile ? activeFile.name : 'untitled.js';
+    return activeFile ? activeFile.name : filename; // fallback to legacy filename
   };
+
+  // Legacy placeholder text for Monaco editor
+  const placeholderText = '  Start typing here...';
 
   // Load saved theme on mount
   useEffect(() => {
@@ -190,6 +199,13 @@ const App = () => {
       if (error.type === "redo") setIsRedoing(false);
       if (error.type === "checkpoint") setIsCreatingCheckpoint(false);
     });
+    socket.on("filenameChanged", ({ oldFilename, newFilename, userName }) => {
+      setFilename(newFilename);
+      setChatMessages((prev) => [
+        ...prev,
+        { userName: "System", message: `Filename changed from \"${oldFilename}\" to \"${newFilename}\" by ${userName}` }
+      ]);
+    });
 
     return () => {
       socket.off();
@@ -267,36 +283,81 @@ const App = () => {
   };
 
   const handleChange = (newCode) => {
-    if (!activeFileId) return;
-    
-    // Update local state immediately for responsiveness
-    setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: newCode } : f));
+    // Handle placeholder visibility for Monaco editor
+    const placeholderEl = document.querySelector('.monaco-placeholder');
+    if (!newCode) {
+      if (placeholderEl) placeholderEl.style.display = 'block';
+    } else {
+      if (placeholderEl) placeholderEl.style.display = 'none';
+    }
 
-    if (codeChangeTimeout) clearTimeout(codeChangeTimeout);
+    // Update state based on whether we're in multi-file mode or legacy mode
+    if (activeFileId && files.length > 0) {
+      // Multi-file mode: update the active file
+      setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: newCode } : f));
+    } else {
+      // Legacy mode: update the code state
+      setCode(newCode);
+    }
+
+    // Clear existing timeout if any
+    if (codeChangeTimeout) {
+      clearTimeout(codeChangeTimeout);
+    }
 
     const newTimeout = setTimeout(() => {
-      socket.emit("fileContentChange", { roomId, fileId: activeFileId, content: newCode });
+      if (activeFileId && files.length > 0) {
+        // Multi-file mode: emit file content change
+        socket.emit("fileContentChange", { roomId, fileId: activeFileId, content: newCode });
+      } else {
+        // Legacy mode: emit code change
+        socket.emit('codeChange', { roomId, code: newCode });
+      }
     }, 500);
 
     setCodeChangeTimeout(newTimeout);
 
     // typing notification
-    socket.emit("typing", { roomId, userName });
+    socket.emit('typing', { roomId, userName });
   };
+
 
   const handleLanguageChange = (e) => {
     const newLanguage = e.target.value;
-    if (!activeFileId) return;
     
-    // Update local state immediately
-    setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, language: newLanguage } : f));
-    
-    socket.emit("fileLanguageChange", { roomId, fileId: activeFileId, language: newLanguage });
+    if (activeFileId && files.length > 0) {
+      // Multi-file mode: update the active file language
+      setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, language: newLanguage } : f));
+      socket.emit("fileLanguageChange", { roomId, fileId: activeFileId, language: newLanguage });
+    } else {
+      // Legacy mode: update language state
+      setLanguage(newLanguage);
+      socket.emit("languageChange", { roomId, language: newLanguage });
+    }
   };
 
-  const handleFilenameChange = (newName) => {
+  // Legacy filename handling functions
+  const handleFilenameChange = (e) => {
+    setPendingFilename(e.target.value);
+  };
+
+  const saveFilenameChange = () => {
+    if (!pendingFilename || pendingFilename === filename) return;
+    const oldFilename = filename;
+    setFilename(pendingFilename);
+    // Auto-detect language from filename
+    const detectedLanguage = detectFileType(pendingFilename);
+    if (detectedLanguage && detectedLanguage !== language && isLanguageSupported(detectedLanguage)) {
+      setLanguage(detectedLanguage);
+      socket.emit("languageChange", { roomId, language: detectedLanguage });
+    }
+    socket.emit("filenameChange", { roomId, oldFilename, newFilename: pendingFilename, userName });
+    setPendingFilename("");
+  };
+
+  // Multi-file filename handling
+  const handleFileRename = (newName) => {
     if (!activeFileId) return;
-    
     handleRenameFile(activeFileId, newName);
   };
 
@@ -364,6 +425,12 @@ const App = () => {
     setIsChatMinimized(minimized);
   };
 
+  const handleEditorOnMount = (editor, monaco) => {
+    const placeholderEl = document.querySelector('.monaco-placeholder');
+    placeholderEl.style.display = 'block';
+    editor.focus();
+  };
+
   if (!joined) {
     return (
       <div className="join-container">
@@ -409,7 +476,9 @@ const App = () => {
             <p className="typing-indicator">{typing}</p>
             
             <div className="file-controls">
-              <h3>Current File</h3>
+              <h3>{files.length > 0 ? 'Current File' : 'File & Language'}</h3>
+              
+              {/* Multi-file mode: Show current file info */}
               {files.length > 0 && getCurrentFilename() ? (
                 <div className="current-file-info">
                   <div className="filename-display">
@@ -426,43 +495,97 @@ const App = () => {
                       <optgroup label="Popular Languages">
                         {getPopularLanguages().map((lang) => (
                           <option key={lang.id} value={lang.id}>
-                        {lang.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  {showAllLanguages && (
-                    <optgroup label="All Languages">
-                      {getAllSupportedLanguages()
-                        .filter(lang => !getPopularLanguages().some(popular => popular.id === lang.id))
-                        .map((lang) => (
+                            {lang.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      {showAllLanguages && (
+                        <optgroup label="All Languages">
+                          {getAllSupportedLanguages()
+                            .filter(lang => !getPopularLanguages().some(popular => popular.id === lang.id))
+                            .map((lang) => (
+                              <option key={lang.id} value={lang.id}>
+                                {lang.name}
+                              </option>
+                            ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <button 
+                      type="button"
+                      className="show-all-languages-btn"
+                      onClick={() => setShowAllLanguages(!showAllLanguages)}
+                    >
+                      {showAllLanguages ? "Show Less" : "Show All"}
+                    </button>
+                  </div>
+                  
+                  <div className="language-info">
+                    <small>
+                      Current: <strong>{getLanguageDisplayName(getCurrentLanguage())}</strong>
+                    </small>
+                  </div>
+                </div>
+              ) : (
+                /* Legacy mode: Show filename input and language selector */
+                <>
+                  <div className="filename-input-group">
+                    <label htmlFor="filename">Filename:</label>
+                    <input
+                      id="filename"
+                      type="text"
+                      className="filename-input"
+                      value={pendingFilename || filename}
+                      onChange={handleFilenameChange}
+                      placeholder="e.g., main.js, script.py"
+                    />
+                    <button onClick={saveFilenameChange} className="save-filename-btn">Save Filename</button>
+                  </div>
+                  
+                  <div className="language-selector-group">
+                    <label htmlFor="language">Language:</label>
+                    <select
+                      id="language"
+                      className="language-selector"
+                      value={language}
+                      onChange={handleManualLanguageChange}
+                    >
+                      <optgroup label="Popular Languages">
+                        {getPopularLanguages().map((lang) => (
                           <option key={lang.id} value={lang.id}>
                             {lang.name}
                           </option>
                         ))}
-                    </optgroup>
-                  )}
-                </select>
-                <button 
-                  type="button"
-                  className="show-all-languages-btn"
-                  onClick={() => setShowAllLanguages(!showAllLanguages)}
-                >
-                  {showAllLanguages ? "Show Less" : "Show All"}
-                </button>
-              </div>
-              
-              <div className="language-info">
-                <small>
-                  Current: <strong>{getLanguageDisplayName(getCurrentLanguage())}</strong>
-                </small>
-              </div>
+                      </optgroup>
+                      {showAllLanguages && (
+                        <optgroup label="All Languages">
+                          {getAllSupportedLanguages()
+                            .filter(lang => !getPopularLanguages().some(popular => popular.id === lang.id))
+                            .map((lang) => (
+                              <option key={lang.id} value={lang.id}>
+                                {lang.name}
+                              </option>
+                            ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <button 
+                      type="button"
+                      className="show-all-languages-btn"
+                      onClick={() => setShowAllLanguages(!showAllLanguages)}
+                    >
+                      {showAllLanguages ? "Show Less" : "Show All"}
+                    </button>
+                  </div>
+                  
+                  <div className="language-info">
+                    <small>
+                      Current: <strong>{getLanguageDisplayName(language)}</strong>
+                    </small>
+                  </div>
+                </>
+              )}
             </div>
-          ) : (
-            <div className="loading-files">
-              <p>Loading files...</p>
-            </div>
-          )}
-        </div>
         <button className="leave-button" onClick={leaveRoom}>
           Leave Room
         </button>
@@ -540,21 +663,26 @@ const App = () => {
               </button>
             </div>
           </div>
-          </div>
         }
         editor={
           <div className="editor-wrapper">
-            <FileTabs
-              files={files}
-              activeFileId={activeFileId}
-              onTabClick={handleTabClick}
-              onCreateFile={handleCreateFile}
-              onRenameFile={handleRenameFile}
-              onDeleteFile={handleDeleteFile}
-            />
+            {/* Show FileTabs only if we have files in multi-file mode */}
+            {files.length > 0 && (
+              <FileTabs
+                files={files}
+                activeFileId={activeFileId}
+                onTabClick={handleTabClick}
+                onCreateFile={handleCreateFile}
+                onRenameFile={handleRenameFile}
+                onDeleteFile={handleDeleteFile}
+              />
+            )}
+            
+            {/* Editor component */}
             {files.length > 0 && activeFileId ? (
+              /* Multi-file mode */
               <Editor
-                height={"calc(100% - 40px)"}
+                height={files.length > 0 ? "calc(100% - 40px)" : "100%"}
                 defaultLanguage={getCurrentLanguage()}
                 language={getCurrentLanguage()}
                 value={getCurrentCode()}
@@ -565,7 +693,26 @@ const App = () => {
                   fontSize: 14,
                 }}
               />
+            ) : files.length === 0 ? (
+              /* Legacy mode */
+              <>
+                <Editor
+                  height={"100%"}
+                  defaultLanguage={language}
+                  language={language}
+                  value={code}
+                  onChange={handleChange}
+                  onMount={handleEditorOnMount}
+                  theme={theme === "dark" ? "vs-dark" : "vs-light"}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                  }}
+                />
+                <div className={`monaco-placeholder ${theme === 'dark' ? 'placeholder-dark' : 'placeholder-light'}`}>{placeholderText}</div>
+              </>
             ) : (
+              /* Loading state */
               <div className="editor-placeholder">
                 <div className="placeholder-content">
                   <h3>Welcome to the Collaborative Code Editor</h3>
@@ -573,6 +720,7 @@ const App = () => {
                 </div>
               </div>
             )}
+            
             <VideoCall
               socket={socket}
               roomId={roomId}

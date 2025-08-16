@@ -38,13 +38,8 @@ const App = () => {
   // Legacy state for backward compatibility
   const [language, setLanguage] = useState("javascript");
   const [code, setCode] = useState("");
-<<<<<<< HEAD
-=======
   const [filename, setFilename] = useState("untitled.js");
   const [pendingFilename, setPendingFilename] = useState("");
-  
-  const [copySuccess, setCopySuccess] = useState("");
->>>>>>> da39ba14a661d59821cb9ad9c7416f0cefb1f37f
   const [users, setUsers] = useState([]);
   const { toast } = useToast();
   const [typing, setTyping] = useState(false);
@@ -672,17 +667,14 @@ const App = () => {
             </button>
             <div className="room-info">
               <h2>Code Room: {roomId}</h2>
-              <div className="room-id-container">
-                <div className="room-id-display">{roomId}</div>
-                <button 
-                  className="copy-room-id-btn"
-                  onClick={copyRoomId}
-                  title="Copy Room ID to clipboard"
-                >
-                  <span className="copy-icon">📋</span>
-                  <span className="copy-text">Copy ID</span>
-                </button>
-              </div>
+              <button 
+                className="copy-room-id-btn"
+                onClick={copyRoomId}
+                title="Copy Room ID to clipboard"
+              >
+                <span className="copy-icon">📋</span>
+                <span className="copy-text">Copy ID</span>
+              </button>
             </div>
             <h3>Users in Room:</h3>
             <ul>

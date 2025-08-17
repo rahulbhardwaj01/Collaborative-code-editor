@@ -20,6 +20,7 @@ import {
   getAllSupportedLanguages,
   isLanguageSupported 
 } from "./utils/fileTypeDetection";
+import BackToTop from "./components/ui/BackToTop";
 
 const App = () => {
   const [joined, setJoined] = useState(false);
@@ -328,7 +329,12 @@ const App = () => {
   };
 
   if (!joined) {
-    return <LandingPage onJoinRoom={handleJoinFromLanding} />;
+    return(
+      <div>
+        <LandingPage onJoinRoom={handleJoinFromLanding} /> 
+        <BackToTop />
+      </div>
+    );
   }
 
     return (

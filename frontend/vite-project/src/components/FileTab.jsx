@@ -1,16 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './FileTab.css';
+import { io } from 'socket.io-client';
 
-const FileTab = ({ 
-  file, 
-  isActive, 
-  onClick, 
-  onClose, 
-  onRename, 
-  isRenamable = true 
+// Replace with your backend port
+const socket = io('http://localhost:3000');
+
+const FileTab = ({
+  file,
+  isActive,
+  onClick,
+  onClose,
+  onRename,
+  isRenamable = true,
+  roomId,
+  currentUser
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState(file.filename);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const typingTimeout = useRef(null);
+
+  useEffect(() => {
+    socket.on('userTyping', ({ user }) => {
+      setTypingUsers((prev) =>
+        prev.includes(user) ? prev : [...prev, user]
+      );
+    });
+
+    socket.on('userStopTyping', ({ user }) => {
+      setTypingUsers((prev) => prev.filter((u) => u !== user));
+    });
+
+    return () => {
+      socket.off('userTyping');
+      socket.off('userStopTyping');
+    };
+  }, []);
 
   const handleDoubleClick = () => {
     if (isRenamable) {
@@ -25,18 +50,30 @@ const FileTab = ({
       onRename(file.filename, newName.trim());
     }
     setIsEditing(false);
+    socket.emit('stopTyping', { roomId, user: currentUser });
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
       setIsEditing(false);
       setNewName(file.filename);
+      socket.emit('stopTyping', { roomId, user: currentUser });
     }
   };
 
   const handleCloseClick = (e) => {
     e.stopPropagation();
     onClose(file.filename);
+  };
+
+  const handleInputChange = (e) => {
+    setNewName(e.target.value);
+    socket.emit('typing', { roomId, user: currentUser });
+
+    clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => {
+      socket.emit('stopTyping', { roomId, user: currentUser });
+    }, 1000);
   };
 
   const getFileIcon = (filename) => {
@@ -66,22 +103,25 @@ const FileTab = ({
   };
 
   return (
-    <div 
+    <div
       className={`file-tab ${isActive ? 'active' : ''}`}
       onClick={onClick}
       onDoubleClick={handleDoubleClick}
       title={`${file.filename} - ${isActive ? 'Active' : 'Click to open'}`}
     >
       <span className="file-icon">{getFileIcon(file.filename)}</span>
-      
+
       {isEditing ? (
         <form onSubmit={handleSubmit} className="file-rename-form">
           <input
             type="text"
             value={newName}
-            onChange={(e) => setNewName(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            onBlur={() => setIsEditing(false)}
+            onBlur={() => {
+              setIsEditing(false);
+              socket.emit('stopTyping', { roomId, user: currentUser });
+            }}
             className="file-rename-input"
             autoFocus
           />
@@ -89,9 +129,9 @@ const FileTab = ({
       ) : (
         <span className="file-name">{file.filename}</span>
       )}
-      
+
       {onClose && (
-        <button 
+        <button
           className="file-close-btn"
           onClick={handleCloseClick}
           title="Close file"
@@ -99,14 +139,27 @@ const FileTab = ({
           ×
         </button>
       )}
-      
+
       {file.lastModified && !isActive && (
         <span className="file-modified-indicator" title="File has unsaved changes">
           •
         </span>
       )}
+
+      <TypingIndicator typingUsers={typingUsers} currentUser={currentUser} />
     </div>
   );
 };
+
+function TypingIndicator({ typingUsers, currentUser }) {
+  const othersTyping = typingUsers.filter((u) => u !== currentUser);
+  if (othersTyping.length === 0) return null;
+
+  return (
+    <div className="typing-indicator">
+      {othersTyping.join(', ')} {othersTyping.length === 1 ? 'is' : 'are'} typing...
+    </div>
+  );
+}
 
 export default FileTab;

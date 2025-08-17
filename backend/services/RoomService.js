@@ -2,7 +2,75 @@
 import Room from '../models/Room.js';
 
 class RoomService {
-  // Update filename in room
+  // File management methods
+  
+  // Create new file in room
+  createFileInRoom(roomId, filename, createdBy, code = '', language = 'javascript') {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      return room.createFile(filename, createdBy, code, language);
+    }
+    return { success: false, error: 'Room not found' };
+  }
+  
+  // Delete file from room
+  deleteFileFromRoom(roomId, filename) {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      return room.deleteFile(filename);
+    }
+    return { success: false, error: 'Room not found' };
+  }
+  
+  // Rename file in room
+  renameFileInRoom(roomId, oldFilename, newFilename) {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      return room.renameFile(oldFilename, newFilename);
+    }
+    return { success: false, error: 'Room not found' };
+  }
+  
+  // Set active file in room
+  setActiveFileInRoom(roomId, filename) {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      return room.setActiveFile(filename);
+    }
+    return { success: false, error: 'Room not found' };
+  }
+  
+  // Get all files in room
+  getRoomFiles(roomId) {
+    const room = this.rooms.get(roomId);
+    return room ? room.getAllFiles() : [];
+  }
+  
+  // Get specific file in room
+  getRoomFile(roomId, filename) {
+    const room = this.rooms.get(roomId);
+    return room ? room.getFile(filename) : null;
+  }
+  
+  // Update file code in room
+  updateFileCodeInRoom(roomId, filename, code) {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      return room.updateFileCode(filename, code);
+    }
+    return { success: false, error: 'Room not found' };
+  }
+  
+  // Update file language in room
+  updateFileLanguageInRoom(roomId, filename, language) {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      return room.updateFileLanguage(filename, language);
+    }
+    return { success: false, error: 'Room not found' };
+  }
+
+  // Update filename in room (legacy method for backward compatibility)
   updateRoomFilename(roomId, newFilename) {
     const room = this.rooms.get(roomId);
     if (room) {

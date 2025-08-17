@@ -203,6 +203,16 @@ const ChatWindow = ({
     const form = targetWindow.document.getElementById('detached-chat-form');
     const input = targetWindow.document.getElementById('detached-input');
     
+    // Set up input value
+    if (input) {
+    input.value = chatInput || "";
+    input.setSelectionRange(input.value.length, input.value.length);
+    input.addEventListener('input', (e) => {
+      setChatInput(e.target.value);
+    });
+    input.focus();
+  }
+
     if (form && input) {
       form.addEventListener('submit', (e) => {
         e.preventDefault();

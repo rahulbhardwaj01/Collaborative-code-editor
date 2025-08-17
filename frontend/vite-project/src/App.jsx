@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import "./App.css";
 import io from "socket.io-client";
 const socket = io("http://localhost:3000");
@@ -65,6 +65,19 @@ const App = () => {
   const [theme, setTheme] = useState("dark");
 
   const placeholderText = '  Start typing here...';
+
+  // Scroll Control State
+  const messagesEndRef = useRef(null);
+
+   // auto-scroll effect
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollTo({
+        top: messagesEndRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [chatMessages]);
 
   // Load saved theme on mount
   useEffect(() => {
@@ -513,7 +526,7 @@ const App = () => {
     if (!chatInput.trim()) return;
     const newMessage = { userName, message: chatInput };
     setChatMessages((prev) => [...prev, newMessage]);
-    socket.emit("chatMessage", { roomId, ...newMessage });
+    // socket.emit("chatMessage", { roomId, ...newMessage });
     setChatInput("");
   };
 
@@ -842,7 +855,7 @@ const App = () => {
         }
         chatPanel={
           <div className="chat-panel-content">
-            <div className="chat-messages">
+            <div className="chat-messages" ref={messagesEndRef} style={{ overflowY: "auto", maxHeight: "100%" }}>
               {chatMessages.map((msg, idx) => (
                 <div key={idx} className="chat-message">
                   <span className="chat-user">{msg.userName.slice(0, 8)}:</span>{" "}

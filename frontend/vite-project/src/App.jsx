@@ -24,9 +24,11 @@ import {
 } from "./utils/fileTypeDetection";
 
 import BackToTop from "./components/ui/BackToTop";
-
 import * as monaco from 'monaco-editor';
 
+// Toastify imports
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const App = () => {
   const [joined, setJoined] = useState(false);
@@ -45,7 +47,7 @@ const App = () => {
   const [filename, setFilename] = useState("untitled.js");
   const [pendingFilename, setPendingFilename] = useState("");
   const [users, setUsers] = useState([]);
-  const { toast } = useToast();
+  const { toast: customToast } = useToast();
   const [typing, setTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
@@ -72,6 +74,30 @@ const App = () => {
 
   // Scroll Control State
   const messagesEndRef = useRef(null);
+
+  // Toast reconnect state
+  const reconnectToastId = useRef(null);
+
+  // Socket connection error/reconnect toasts
+  useEffect(() => {
+    socket.on("connect_error", () => {
+      toast.error("Connection failed!");
+    });
+
+    socket.on("disconnect", () => {
+      reconnectToastId.current = toast.info("Reconnecting…", { autoClose: false, toastId: "reconnect" });
+    });
+
+    socket.on("connect", () => {
+      toast.dismiss("reconnect");
+    });
+
+    return () => {
+      socket.off("connect_error");
+      socket.off("disconnect");
+      socket.off("connect");
+    };
+  }, []);
 
    // auto-scroll effect
   useEffect(() => {
@@ -243,6 +269,7 @@ const App = () => {
             ? "redone"
             : "reverted"
         } by ${data.performer}`
+
       );
 
       const actionText =
@@ -672,254 +699,256 @@ const App = () => {
       <div>
         <LandingPage onJoinRoom={handleJoinFromLanding} /> 
         <BackToTop />
+        <ToastContainer />
       </div>
     );
   }
 
-    return (
-          <QueryClientProvider client={queryClient}>
+  return (
+    <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-    <>
-      <ResizableLayout
-        sidebar={
-          <div className="sidebar">
-            <button onClick={toggleTheme} className="theme-toggle-btn">
-              {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
-            </button>
-            <div className="room-info">
-              <h2>Code Room: {roomId}</h2>
-              <button 
-                className="copy-room-id-btn"
-                onClick={copyRoomId}
-                title="Copy Room ID to clipboard"
-              >
-                <span className="copy-icon">📋</span>
-                <span className="copy-text">Copy ID</span>
-              </button>
-            </div>
-            <h3>Users in Room:</h3>
-            <ul>
-              {users.map((user, index) => (
-                <li key={index}>{user.slice(0, 8)}</li>
-              ))}
-            </ul>
-            <p className="typing-indicator">{typing}</p>
-            
-            {/* File Explorer Component */}
-            <FileExplorer
-              files={files}
-              activeFile={activeFile}
-              onFileCreate={handleFileCreate}
-              onFileDelete={handleFileDelete}
-              onFileRename={handleFileRename}
-              onFileSwitch={handleFileSwitch}
-              userName={userName}
-            />
-            
-            <div className="file-controls">
-              <h3>Current File Settings</h3>
-              <div className="filename-input-group">
-                <label htmlFor="filename">Active File:</label>
-                <input
-                  id="filename"
-                  type="text"
-                  className="filename-input"
-                  value={pendingFilename || filename}
-                  onChange={handleFilenameChange}
-                  placeholder="e.g., main.js, script.py"
+        <>
+          <ResizableLayout
+            sidebar={
+              <div className="sidebar">
+                <button onClick={toggleTheme} className="theme-toggle-btn">
+                  {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+                </button>
+                <div className="room-info">
+                  <h2>Code Room: {roomId}</h2>
+                  <button 
+                    className="copy-room-id-btn"
+                    onClick={copyRoomId}
+                    title="Copy Room ID to clipboard"
+                  >
+                    <span className="copy-icon">📋</span>
+                    <span className="copy-text">Copy ID</span>
+                  </button>
+                </div>
+                <h3>Users in Room:</h3>
+                <ul>
+                  {users.map((user, index) => (
+                    <li key={index}>{user.slice(0, 8)}</li>
+                  ))}
+                </ul>
+                <p className="typing-indicator">{typing}</p>
+                
+                {/* File Explorer Component */}
+                <FileExplorer
+                  files={files}
+                  activeFile={activeFile}
+                  onFileCreate={handleFileCreate}
+                  onFileDelete={handleFileDelete}
+                  onFileRename={handleFileRename}
+                  onFileSwitch={handleFileSwitch}
+                  userName={userName}
                 />
-                <button onClick={saveFilenameChange} className="save-filename-btn">Rename</button>
-              </div>
-              
-              <div className="language-selector-group">
-                <label htmlFor="language">Language:</label>
-                <select
-                  id="language"
-                  className="language-selector"
-                  value={language}
-                  onChange={handleManualLanguageChange}
-                >
-                  <optgroup label="Popular Languages">
-                    {getPopularLanguages().map((lang) => (
-                      <option key={lang.id} value={lang.id}>
-                        {lang.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  {showAllLanguages && (
-                    <optgroup label="All Languages">
-                      {getAllSupportedLanguages()
-                        .filter(lang => !getPopularLanguages().some(popular => popular.id === lang.id))
-                        .map((lang) => (
+                
+                <div className="file-controls">
+                  <h3>Current File Settings</h3>
+                  <div className="filename-input-group">
+                    <label htmlFor="filename">Active File:</label>
+                    <input
+                      id="filename"
+                      type="text"
+                      className="filename-input"
+                      value={pendingFilename || filename}
+                      onChange={handleFilenameChange}
+                      placeholder="e.g., main.js, script.py"
+                    />
+                    <button onClick={saveFilenameChange} className="save-filename-btn">Rename</button>
+                  </div>
+                  
+                  <div className="language-selector-group">
+                    <label htmlFor="language">Language:</label>
+                    <select
+                      id="language"
+                      className="language-selector"
+                      value={language}
+                      onChange={handleManualLanguageChange}
+                    >
+                      <optgroup label="Popular Languages">
+                        {getPopularLanguages().map((lang) => (
                           <option key={lang.id} value={lang.id}>
                             {lang.name}
                           </option>
                         ))}
-                    </optgroup>
-                  )}
-                </select>
-                <button 
-                  type="button"
-                  className="show-all-languages-btn"
-                  onClick={() => setShowAllLanguages(!showAllLanguages)}
-                >
-                  {showAllLanguages ? "Show Less" : "Show All"}
-                </button>
-              </div>
-              
-              <div className="language-info">
-                <small>
-                  Current: <strong>{getLanguageDisplayName(language)}</strong>
-                </small>
-              </div>
-            </div>
-            <button className="leave-button" onClick={leaveRoom}>
-              Leave Room
-            </button>
-
-            <div className="version-controls">
-              <h3>Version History</h3>
-              <div className="version-buttons">
-                <button
-                  className={`version-btn undo-btn ${
-                    !undoRedoState.canUndo || isUndoing ? "disabled" : ""
-                  } ${isUndoing ? "loading" : ""}`}
-                  onClick={handleUndo}
-                  disabled={!undoRedoState.canUndo || isUndoing}
-                  title="Undo (Ctrl+Z)"
-                >
-                  {isUndoing ? "Undoing..." : "Undo"}
-                </button>
-                <button
-                  className={`version-btn redo-btn ${
-                    !undoRedoState.canRedo || isRedoing ? "disabled" : ""
-                  } ${isRedoing ? "loading" : ""}`}
-                  onClick={handleRedo}
-                  disabled={!undoRedoState.canRedo || isRedoing}
-                  title="Redo (Ctrl+Y)"
-                >
-                  {isRedoing ? "Redoing..." : "Redo"}
-                </button>
-              </div>
-              <div className="version-info">
-                <span className="version-count">
-                  {undoRedoState.currentVersionIndex + 1} /{" "}
-                  {undoRedoState.totalVersions}
-                </span>
-              </div>
-              <button
-                className="version-btn history-btn"
-                onClick={() => setShowVersionHistory(true)}
-                title="View version history"
-              >
-                History
-              </button>
-              <button
-                className={`version-btn checkpoint-btn ${
-                  isCreatingCheckpoint ? "loading" : ""
-                }`}
-                onClick={createCheckpoint}
-                disabled={isCreatingCheckpoint}
-                title="Create checkpoint"
-              >
-                {isCreatingCheckpoint ? "Creating..." : "Checkpoint"}
-              </button>
-            </div>
-          </div>
-        }
-        editor={
-          <div className="editor-wrapper">
-            <div className="editor-header">
-              <span className="current-file-indicator">
-                📄 {activeFile || filename} 
-                {activeFile && (
-                  <span className="file-language-badge">
-                    {getLanguageDisplayName(currentFileLanguage)}
-                  </span>
-                )}
-              </span>
-            </div>
-            <Editor
-              height={"calc(100% - 40px)"}
-              defaultLanguage={currentFileLanguage}
-              language={currentFileLanguage}
-              value={currentFileContent || code}
-              onChange={handleChange}
-              onMount={handleEditorOnMount}
-              theme={theme === "dark" ? "vs-dark" : "vs-light"}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-              }}
-            />
-            <div className={`monaco-placeholder ${theme === 'dark' ? 'placeholder-dark' : 'placeholder-light'}`}>{placeholderText}</div>
-            <VideoCall
-              socket={socket}
-              roomId={roomId}
-              userName={userName}
-              joined={joined}
-            />
-          </div>
-        }
-        chatPanel={
-          <div className="chat-panel-content">
-            <div className="chat-messages" ref={messagesEndRef} style={{ overflowY: "auto", maxHeight: "100%" }}>
-              {chatMessages.map((msg, idx) => (
-                <div key={idx} className="chat-message">
-                  <span className="chat-user">{msg.userName.slice(0, 8)}:</span>{" "}
-                  {msg.message}
+                      </optgroup>
+                      {showAllLanguages && (
+                        <optgroup label="All Languages">
+                          {getAllSupportedLanguages()
+                            .filter(lang => !getPopularLanguages().some(popular => popular.id === lang.id))
+                            .map((lang) => (
+                              <option key={lang.id} value={lang.id}>
+                                {lang.name}
+                              </option>
+                            ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <button 
+                      type="button"
+                      className="show-all-languages-btn"
+                      onClick={() => setShowAllLanguages(!showAllLanguages)}
+                    >
+                      {showAllLanguages ? "Show Less" : "Show All"}
+                    </button>
+                  </div>
+                  
+                  <div className="language-info">
+                    <small>
+                      Current: <strong>{getLanguageDisplayName(language)}</strong>
+                    </small>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <form className="chat-input-form" onSubmit={sendChatMessage}>
-              <input
-                className="chat-input"
-                type="text"
-                placeholder="Type a message..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                maxLength={200}
-              />
-              <button type="submit" className="chat-send-btn">
-                Send
-              </button>
-            </form>
-          </div>
-        }
-        onChatDetach={handleChatDetach}
-        isChatDetached={isChatDetached}
-        onChatMinimize={handleChatMinimize}
-        isChatMinimized={isChatMinimized}
-        chatMessages={chatMessages}
-        chatInput={chatInput}
-        setChatInput={setChatInput}
-        sendChatMessage={sendChatMessage}
-        socket={socket}
-        roomId={roomId}
-        userName={userName}
-      />
-      
-      {/* Detached Chat Window */}
-      {isChatDetached && (
-        <ChatWindow
-          chatMessages={chatMessages}
-          chatInput={chatInput}
-          setChatInput={setChatInput}
-          sendChatMessage={sendChatMessage}
-          onClose={() => setIsChatDetached(false)}
-        />
-      )}
+                <button className="leave-button" onClick={leaveRoom}>
+                  Leave Room
+                </button>
 
-      {/* Version History Modal */}
-      <VersionHistory
-        socket={socket}
-        roomId={roomId}
-        isOpen={showVersionHistory}
-        onClose={() => setShowVersionHistory(false)}
-      />
-    </>
-          </TooltipProvider>
+                <div className="version-controls">
+                  <h3>Version History</h3>
+                  <div className="version-buttons">
+                    <button
+                      className={`version-btn undo-btn ${
+                        !undoRedoState.canUndo || isUndoing ? "disabled" : ""
+                      } ${isUndoing ? "loading" : ""}`}
+                      onClick={handleUndo}
+                      disabled={!undoRedoState.canUndo || isUndoing}
+                      title="Undo (Ctrl+Z)"
+                    >
+                      {isUndoing ? "Undoing..." : "Undo"}
+                    </button>
+                    <button
+                      className={`version-btn redo-btn ${
+                        !undoRedoState.canRedo || isRedoing ? "disabled" : ""
+                      } ${isRedoing ? "loading" : ""}`}
+                      onClick={handleRedo}
+                      disabled={!undoRedoState.canRedo || isRedoing}
+                      title="Redo (Ctrl+Y)"
+                    >
+                      {isRedoing ? "Redoing..." : "Redo"}
+                    </button>
+                  </div>
+                  <div className="version-info">
+                    <span className="version-count">
+                      {undoRedoState.currentVersionIndex + 1} /{" "}
+                      {undoRedoState.totalVersions}
+                    </span>
+                  </div>
+                  <button
+                    className="version-btn history-btn"
+                    onClick={() => setShowVersionHistory(true)}
+                    title="View version history"
+                  >
+                    History
+                  </button>
+                  <button
+                    className={`version-btn checkpoint-btn ${
+                      isCreatingCheckpoint ? "loading" : ""
+                    }`}
+                    onClick={createCheckpoint}
+                    disabled={isCreatingCheckpoint}
+                    title="Create checkpoint"
+                  >
+                    {isCreatingCheckpoint ? "Creating..." : "Checkpoint"}
+                  </button>
+                </div>
+              </div>
+            }
+            editor={
+              <div className="editor-wrapper">
+                <div className="editor-header">
+                  <span className="current-file-indicator">
+                    📄 {activeFile || filename} 
+                    {activeFile && (
+                      <span className="file-language-badge">
+                        {getLanguageDisplayName(currentFileLanguage)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <Editor
+                  height={"calc(100% - 40px)"}
+                  defaultLanguage={currentFileLanguage}
+                  language={currentFileLanguage}
+                  value={currentFileContent || code}
+                  onChange={handleChange}
+                  onMount={handleEditorOnMount}
+                  theme={theme === "dark" ? "vs-dark" : "vs-light"}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                  }}
+                />
+                <div className={`monaco-placeholder ${theme === 'dark' ? 'placeholder-dark' : 'placeholder-light'}`}>{placeholderText}</div>
+                <VideoCall
+                  socket={socket}
+                  roomId={roomId}
+                  userName={userName}
+                  joined={joined}
+                />
+              </div>
+            }
+            chatPanel={
+              <div className="chat-panel-content">
+                <div className="chat-messages" ref={messagesEndRef} style={{ overflowY: "auto", maxHeight: "100%" }}>
+                  {chatMessages.map((msg, idx) => (
+                    <div key={idx} className="chat-message">
+                      <span className="chat-user">{msg.userName.slice(0, 8)}:</span>{" "}
+                      {msg.message}
+                    </div>
+                  ))}
+                </div>
+                <form className="chat-input-form" onSubmit={sendChatMessage}>
+                  <input
+                    className="chat-input"
+                    type="text"
+                    placeholder="Type a message..."
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    maxLength={200}
+                  />
+                  <button type="submit" className="chat-send-btn">
+                    Send
+                  </button>
+                </form>
+              </div>
+            }
+            onChatDetach={handleChatDetach}
+            isChatDetached={isChatDetached}
+            onChatMinimize={handleChatMinimize}
+            isChatMinimized={isChatMinimized}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            sendChatMessage={sendChatMessage}
+            socket={socket}
+            roomId={roomId}
+            userName={userName}
+          />
+          
+          {/* Detached Chat Window */}
+          {isChatDetached && (
+            <ChatWindow
+              chatMessages={chatMessages}
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              sendChatMessage={sendChatMessage}
+              onClose={() => setIsChatDetached(false)}
+            />
+          )}
+
+          {/* Version History Modal */}
+          <VersionHistory
+            socket={socket}
+            roomId={roomId}
+            isOpen={showVersionHistory}
+            onClose={() => setShowVersionHistory(false)}
+          />
+          <ToastContainer />
+        </>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 };

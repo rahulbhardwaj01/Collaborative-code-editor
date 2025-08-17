@@ -7,6 +7,7 @@ import VideoCall from "./VideoCall";
 import VersionHistory from "./VersionHistory";
 import ResizableLayout from "./components/ResizableLayout";
 import ChatWindow from "./components/ChatWindow";
+import FileExplorer from "./components/FileExplorer";
 import LandingPage from "./pages/Landing_page";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -20,22 +21,35 @@ import {
   getAllSupportedLanguages,
   isLanguageSupported 
 } from "./utils/fileTypeDetection";
+
 import BackToTop from "./components/ui/BackToTop";
+
+import * as monaco from 'monaco-editor';
+
 
 const App = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
-  const [language, setLanguage] = useState("js");
+  
+  // File management state
+  const [files, setFiles] = useState([]);
+  const [activeFile, setActiveFile] = useState("");
+  const [currentFileContent, setCurrentFileContent] = useState("");
+  const [currentFileLanguage, setCurrentFileLanguage] = useState("javascript");
+  
+  // Legacy state for backward compatibility
+  const [language, setLanguage] = useState("javascript");
   const [code, setCode] = useState("");
+  const [filename, setFilename] = useState("untitled.js");
+  const [pendingFilename, setPendingFilename] = useState("");
+  
   const [copySuccess, setCopySuccess] = useState("");
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [showVersionHistory, setShowVersionHistory] = useState(false);
-  const [filename, setFilename] = useState("untitled.js");
-  const [pendingFilename, setPendingFilename] = useState("");
   const [showAllLanguages, setShowAllLanguages] = useState(false);
   const [undoRedoState, setUndoRedoState] = useState({
     canUndo: false,
@@ -52,7 +66,6 @@ const App = () => {
   const [isChatMinimized, setIsChatMinimized] = useState(false);
 
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
-
   const [theme, setTheme] = useState("dark");
 
   const placeholderText = '  Start typing here...';
@@ -79,20 +92,132 @@ const App = () => {
   };
 
   useEffect(() => {
+    // User and room events
     socket.on("userJoined", (users) => setUsers(users));
-    socket.on("codeUpdated", (newCode) => setCode(newCode));
+    socket.on("codeUpdated", (newCode) => {
+      setCode(newCode);
+      setCurrentFileContent(newCode);
+    });
     socket.on("userTyping", (user) => {
       setTyping(`${user.slice(0, 8)} is typing...`);
       setTimeout(() => setTyping(""), 3000);
     });
-    socket.on("languageUpdated", (newLanguage) => setLanguage(newLanguage));
+    socket.on("languageUpdated", (newLanguage) => {
+      setLanguage(newLanguage);
+      setCurrentFileLanguage(newLanguage);
+    });
     socket.on("chatMessage", ({ userName, message }) =>
       setChatMessages((prev) => [...prev, { userName, message }])
     );
+    
+    // File management events
+    socket.on("filesUpdated", ({ files: newFiles, activeFile: newActiveFile }) => {
+      setFiles(newFiles);
+      setActiveFile(newActiveFile);
+      // Update current file content and language
+      const currentFile = newFiles.find(f => f.filename === newActiveFile);
+      if (currentFile) {
+        setCurrentFileContent(currentFile.code);
+        const detectedLang = detectFileType(currentFile.filename);
+        setCurrentFileLanguage(detectedLang);
+        setCode(currentFile.code);
+        setLanguage(detectedLang);
+        setFilename(currentFile.filename);
+        console.log('[DEBUG] File switched:', currentFile.filename, 'Detected language:', detectedLang);
+      }
+    });
+
+    socket.on("fileCreated", ({ file, createdBy }) => {
+      setFiles(prev => [...prev, file]);
+      setChatMessages((prev) => [...prev, { 
+        userName: "System", 
+        message: `File "${file.filename}" created by ${createdBy}` 
+      }]);
+    });
+
+    socket.on("fileDeleted", ({ filename, deletedBy, newActiveFile }) => {
+      setFiles(prev => prev.filter(f => f.filename !== filename));
+      
+      if (newActiveFile && newActiveFile !== activeFile) {
+        setActiveFile(newActiveFile);
+        // Request file content update
+        socket.emit("switchFile", { roomId, filename: newActiveFile, switchedBy: userName });
+      }
+      
+      setChatMessages((prev) => [...prev, { 
+        userName: "System", 
+        message: `File "${filename}" deleted by ${deletedBy}` 
+      }]);
+    });
+
+    socket.on("fileRenamed", ({ oldFilename, newFilename, renamedBy }) => {
+      setFiles(prev => prev.map(f => 
+        f.filename === oldFilename 
+          ? { ...f, filename: newFilename }
+          : f
+      ));
+      
+      if (activeFile === oldFilename) {
+        setActiveFile(newFilename);
+        setFilename(newFilename);
+      }
+      
+      setChatMessages((prev) => [...prev, { 
+        userName: "System", 
+        message: `File renamed from "${oldFilename}" to "${newFilename}" by ${renamedBy}` 
+      }]);
+    });
+
+    socket.on("activeFileChanged", ({ filename, file, switchedBy }) => {
+      setActiveFile(filename);
+      setCurrentFileContent(file.code);
+      setCurrentFileLanguage(file.language);
+      setCode(file.code);
+      setLanguage(file.language);
+      setFilename(filename);
+      
+      // Update files state to reflect active status
+      setFiles(prev => prev.map(f => ({ 
+        ...f, 
+        isActive: f.filename === filename 
+      })));
+    });
+
+    socket.on("fileCodeUpdated", ({ filename, code: newCode }) => {
+      if (filename === activeFile) {
+        setCurrentFileContent(newCode);
+        setCode(newCode);
+      }
+      
+      // Update the file in files array
+      setFiles(prev => prev.map(f => 
+        f.filename === filename 
+          ? { ...f, code: newCode }
+          : f
+      ));
+    });
+
+    socket.on("fileLanguageUpdated", ({ filename, language: newLanguage }) => {
+      if (filename === activeFile) {
+        setCurrentFileLanguage(newLanguage);
+        setLanguage(newLanguage);
+      }
+      
+      // Update the file in files array
+      setFiles(prev => prev.map(f => 
+        f.filename === filename 
+          ? { ...f, language: newLanguage }
+          : f
+      ));
+    });
+
+    // Version history events
     socket.on("versionAdded", (data) => setUndoRedoState(data.undoRedoState));
     socket.on("codeReverted", (data) => {
       setCode(data.code);
       setLanguage(data.language);
+      setCurrentFileContent(data.code);
+      setCurrentFileLanguage(data.language);
       setUndoRedoState(data.undoRedoState);
       setIsUndoing(false);
       setIsRedoing(false);
@@ -127,19 +252,25 @@ const App = () => {
       if (error.type === "undo") setIsUndoing(false);
       if (error.type === "redo") setIsRedoing(false);
       if (error.type === "checkpoint") setIsCreatingCheckpoint(false);
+      if (error.type === "createFile") alert(`Error creating file: ${error.message}`);
+      if (error.type === "deleteFile") alert(`Error deleting file: ${error.message}`);
+      if (error.type === "renameFile") alert(`Error renaming file: ${error.message}`);
+      if (error.type === "switchFile") alert(`Error switching file: ${error.message}`);
     });
-    socket.on("filenameChanged", ({ oldFilename, newFilename, userName }) => {
+    
+    // Legacy filename change event for backward compatibility
+    socket.on("filenameChanged", ({ oldFilename, newFilename, userName: changedBy }) => {
       setFilename(newFilename);
       setChatMessages((prev) => [
         ...prev,
-        { userName: "System", message: `Filename changed from \"${oldFilename}\" to \"${newFilename}\" by ${userName}` }
+        { userName: "System", message: `Filename changed from "${oldFilename}" to "${newFilename}" by ${changedBy}` }
       ]);
     });
 
     return () => {
       socket.off();
     };
-  }, []);
+  }, [roomId, userName, activeFile]);
 
   useEffect(() => {
     const handleBeforeUnload = () => socket.emit("leaveRoom");
@@ -169,16 +300,60 @@ const App = () => {
     }
   };
 
+  // File management functions
+  const handleFileCreate = (filename, createdBy, code = '', language = 'javascript') => {
+    socket.emit("createFile", { 
+      roomId, 
+      filename, 
+      createdBy, 
+      code, 
+      language 
+    });
+  };
+
+  const handleFileDelete = (filename, deletedBy) => {
+    socket.emit("deleteFile", { 
+      roomId, 
+      filename, 
+      deletedBy 
+    });
+  };
+
+  const handleFileRename = (oldFilename, newFilename) => {
+    if (!newFilename || newFilename === oldFilename) return;
+    
+    socket.emit("renameFile", { 
+      roomId, 
+      oldFilename, 
+      newFilename, 
+      renamedBy: userName 
+    });
+  };
+
+  const handleFileSwitch = (filename, switchedBy) => {
+    if (filename === activeFile) return;
+    
+    socket.emit("switchFile", { 
+      roomId, 
+      filename, 
+      switchedBy 
+    });
+  };
+
   const leaveRoom = () => {
     socket.emit("leaveRoom");
     setJoined(false);
     setRoomId("");
     setUserName("");
     setCode("// Welcome to the collaborative code editor\n// Start coding here...");
+    setCurrentFileContent("// Welcome to the collaborative code editor\n// Start coding here...");
     setUsers([]);
     setTyping("");
     setLanguage("javascript");
+    setCurrentFileLanguage("javascript");
     setFilename("untitled.js");
+    setActiveFile("");
+    setFiles([]);
     setShowAllLanguages(false);
     setChatMessages([]);
     setChatInput("");
@@ -202,6 +377,7 @@ const App = () => {
     }
 
     setCode(newCode);
+    setCurrentFileContent(newCode);
 
     // clear existing timeout if any
     if (codeChangeTimeout) {
@@ -209,7 +385,13 @@ const App = () => {
     }
 
     const newTimeout = window.setTimeout(() => {
-      socket.emit('codeChange', { roomId, code: newCode });
+      // Use new file-specific code change event if active file exists
+      if (activeFile) {
+        socket.emit('fileCodeChange', { roomId, filename: activeFile, code: newCode });
+      } else {
+        // Fallback to legacy method
+        socket.emit('codeChange', { roomId, code: newCode });
+      }
     }, 500);
 
     setCodeChangeTimeout(newTimeout);
@@ -219,34 +401,59 @@ const App = () => {
   };
 
 
-  const handleLanguageChange = (e) => {
-    const newLanguage = e.target.value;
-    setLanguage(newLanguage);
-    socket.emit("languageChange", { roomId, language: newLanguage });
-  };
-
+  // Legacy filename change functions for backward compatibility
   const handleFilenameChange = (e) => {
     setPendingFilename(e.target.value);
   };
 
   const saveFilenameChange = () => {
     if (!pendingFilename || pendingFilename === filename) return;
-    const oldFilename = filename;
-    setFilename(pendingFilename);
-    // Auto-detect language from filename
-    const detectedLanguage = detectFileType(pendingFilename);
-    if (detectedLanguage && detectedLanguage !== language && isLanguageSupported(detectedLanguage)) {
-      setLanguage(detectedLanguage);
-      socket.emit("languageChange", { roomId, language: detectedLanguage });
+    
+    if (activeFile) {
+      // Use new file rename functionality
+      handleFileRename(activeFile, pendingFilename);
+    } else {
+      // Fallback to legacy method
+      const oldFilename = filename;
+      setFilename(pendingFilename);
+      // Auto-detect language from filename
+      const detectedLanguage = detectFileType(pendingFilename);
+      if (detectedLanguage && detectedLanguage !== language && isLanguageSupported(detectedLanguage)) {
+        setLanguage(detectedLanguage);
+        setCurrentFileLanguage(detectedLanguage);
+        socket.emit("languageChange", { roomId, language: detectedLanguage });
+      }
+      socket.emit("filenameChange", { roomId, oldFilename, newFilename: pendingFilename, userName });
     }
-    socket.emit("filenameChange", { roomId, oldFilename, newFilename: pendingFilename, userName });
     setPendingFilename("");
+  };
+
+  const handleLanguageChange = (e) => {
+    const newLanguage = e.target.value;
+    setLanguage(newLanguage);
+    setCurrentFileLanguage(newLanguage);
+    
+    // Use new file-specific language change event if active file exists
+    if (activeFile) {
+      socket.emit("fileLanguageChange", { roomId, filename: activeFile, language: newLanguage });
+    } else {
+      // Fallback to legacy method
+      socket.emit("languageChange", { roomId, language: newLanguage });
+    }
   };
 
   const handleManualLanguageChange = (e) => {
     const newLanguage = e.target.value;
     setLanguage(newLanguage);
-    socket.emit("languageChange", { roomId, language: newLanguage });
+    setCurrentFileLanguage(newLanguage);
+    
+    // Use new file-specific language change event if active file exists
+    if (activeFile) {
+      socket.emit("fileLanguageChange", { roomId, filename: activeFile, language: newLanguage });
+    } else {
+      // Fallback to legacy method
+      socket.emit("languageChange", { roomId, language: newLanguage });
+    }
     
     // Don't update filename automatically to avoid conflicts
   };
@@ -312,8 +519,112 @@ const App = () => {
 
   const handleEditorOnMount = (editor, monaco) => {
     const placeholderEl = document.querySelector('.monaco-placeholder');
-    placeholderEl.style.display = 'block';
+    if (placeholderEl) placeholderEl.style.display = 'block';
     editor.focus();
+
+    // Debug: Log current language
+    console.log('[DEBUG] Editor language:', editor.getModel().getLanguageId());
+
+    // Register completion providers for all supported languages
+    if (monaco.languages && monaco.languages.registerCompletionItemProvider) {
+      const languageSuggestions = {
+        javascript: [
+          { label: 'for', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'for (let i = 0; i < arr.length; i++) {\n  // ...\n}', detail: 'JavaScript for loop' },
+          { label: 'forEach', kind: monaco.languages.CompletionItemKind.Method, insertText: 'arr.forEach(item => {\n  // ...\n});', detail: 'JavaScript Array forEach' },
+          { label: 'map', kind: monaco.languages.CompletionItemKind.Method, insertText: 'arr.map(item => item * 2);', detail: 'JavaScript Array map' },
+          { label: 'filter', kind: monaco.languages.CompletionItemKind.Method, insertText: 'arr.filter(item => item > 0);', detail: 'JavaScript Array filter' },
+          { label: 'reduce', kind: monaco.languages.CompletionItemKind.Method, insertText: 'arr.reduce((acc, item) => acc + item, 0);', detail: 'JavaScript Array reduce' },
+          { label: 'async/await', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'async function fetchData() {\n  try {\n    const res = await fetch(url);\n    const data = await res.json();\n  } catch (e) {\n    // ...\n  }\n}', detail: 'JavaScript async/await' },
+          { label: 'class', kind: monaco.languages.CompletionItemKind.Class, insertText: 'class MyClass {\n  constructor() {\n    // ...\n  }\n}', detail: 'JavaScript class' },
+          { label: 'Promise', kind: monaco.languages.CompletionItemKind.Class, insertText: 'new Promise((resolve, reject) => {\n  // ...\n});', detail: 'JavaScript Promise' },
+          { label: 'setTimeout', kind: monaco.languages.CompletionItemKind.Function, insertText: 'setTimeout(() => {\n  // ...\n}, 1000);', detail: 'JavaScript setTimeout' },
+          { label: 'console.log', kind: monaco.languages.CompletionItemKind.Function, insertText: 'console.log()', detail: 'JavaScript log' },
+        ],
+        typescript: [
+          { label: 'interface', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'interface Name {\n  // ...\n}', detail: 'TypeScript interface' },
+          { label: 'type', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'type Name = {\n  // ...\n}', detail: 'TypeScript type' },
+          { label: 'enum', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'enum MyEnum {\n  VALUE1,\n  VALUE2\n}', detail: 'TypeScript enum' },
+          { label: 'generic', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'function identity<T>(arg: T): T {\n  return arg;\n}', detail: 'TypeScript generic function' },
+        ],
+        python: [
+          { label: 'for', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'for i in range(n):\n    # ...', detail: 'Python for loop' },
+          { label: 'while', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'while condition:\n    # ...', detail: 'Python while loop' },
+          { label: 'def', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'def function_name(params):\n    # ...', detail: 'Python function' },
+          { label: 'class', kind: monaco.languages.CompletionItemKind.Class, insertText: 'class MyClass:\n    def __init__(self):\n        pass', detail: 'Python class' },
+          { label: 'list comprehension', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '[x for x in iterable]', detail: 'Python list comprehension' },
+          { label: 'lambda', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'lambda x: x * 2', detail: 'Python lambda' },
+          { label: 'import', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'import module', detail: 'Python import' },
+          { label: 'print', kind: monaco.languages.CompletionItemKind.Function, insertText: 'print()', detail: 'Python print' },
+        ],
+        java: [
+          { label: 'for', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'for (int i = 0; i < n; i++) {\n    // ...\n}', detail: 'Java for loop' },
+          { label: 'while', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'while (condition) {\n    // ...\n}', detail: 'Java while loop' },
+          { label: 'public static void main', kind: monaco.languages.CompletionItemKind.Function, insertText: 'public static void main(String[] args) {\n    // ...\n}', detail: 'Java main method' },
+          { label: 'System.out.println', kind: monaco.languages.CompletionItemKind.Function, insertText: 'System.out.println()', detail: 'Java print' },
+          { label: 'ArrayList', kind: monaco.languages.CompletionItemKind.Class, insertText: 'ArrayList<Type> list = new ArrayList<>();', detail: 'Java ArrayList' },
+          { label: 'HashMap', kind: monaco.languages.CompletionItemKind.Class, insertText: 'HashMap<Key, Value> map = new HashMap<>();', detail: 'Java HashMap' },
+        ],
+        c: [
+          { label: 'for', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'for (int i = 0; i < n; i++) {\n    // ...\n}', detail: 'C for loop' },
+          { label: 'while', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'while (condition) {\n    // ...\n}', detail: 'C while loop' },
+          { label: 'printf', kind: monaco.languages.CompletionItemKind.Function, insertText: 'printf("%d", value);', detail: 'C printf' },
+          { label: 'struct', kind: monaco.languages.CompletionItemKind.Class, insertText: 'struct MyStruct {\n    int a;\n    float b;\n};', detail: 'C struct' },
+          { label: 'typedef', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'typedef int myint;', detail: 'C typedef' },
+        ],
+        cpp: [
+          { label: '#include', kind: monaco.languages.CompletionItemKind.Keyword, insertText: '#include <iostream>', detail: 'C++ include directive' },
+          { label: 'for', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'for (int i = 0; i < n; ++i) {\n    // ...\n}', detail: 'C++ for loop' },
+          { label: 'while', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'while (condition) {\n    // ...\n}', detail: 'C++ while loop' },
+          { label: 'vector', kind: monaco.languages.CompletionItemKind.Class, insertText: 'std::vector<int> v;', detail: 'C++ STL vector' },
+          { label: 'map', kind: monaco.languages.CompletionItemKind.Class, insertText: 'std::map<int, int> m;', detail: 'C++ STL map' },
+          { label: 'set', kind: monaco.languages.CompletionItemKind.Class, insertText: 'std::set<int> s;', detail: 'C++ STL set' },
+          { label: 'unordered_map', kind: monaco.languages.CompletionItemKind.Class, insertText: 'std::unordered_map<int, int> um;', detail: 'C++ STL unordered_map' },
+          { label: 'class', kind: monaco.languages.CompletionItemKind.Class, insertText: 'class MyClass {\npublic:\n    MyClass() {}\n};', detail: 'C++ class' },
+          { label: 'template', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'template <typename T>\nT add(T a, T b) {\n    return a + b;\n}', detail: 'C++ template function' },
+        ],
+        html: [
+          { label: 'div', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '<div>\n  <!-- ... -->\n</div>', detail: 'HTML div' },
+          { label: 'span', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '<span>\n  <!-- ... -->\n</span>', detail: 'HTML span' },
+          { label: 'form', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '<form>\n  <input type="text" />\n</form>', detail: 'HTML form' },
+          { label: 'img', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '<img src="" alt="" />', detail: 'HTML image' },
+        ],
+        css: [
+          { label: 'display', kind: monaco.languages.CompletionItemKind.Property, insertText: 'display: flex;', detail: 'CSS display property' },
+          { label: 'color', kind: monaco.languages.CompletionItemKind.Property, insertText: 'color: #000;', detail: 'CSS color property' },
+          { label: 'margin', kind: monaco.languages.CompletionItemKind.Property, insertText: 'margin: 0;', detail: 'CSS margin property' },
+          { label: 'padding', kind: monaco.languages.CompletionItemKind.Property, insertText: 'padding: 0;', detail: 'CSS padding property' },
+        ],
+        json: [
+          { label: 'key', kind: monaco.languages.CompletionItemKind.Property, insertText: '"key": "value"', detail: 'JSON key-value' },
+          { label: 'array', kind: monaco.languages.CompletionItemKind.Property, insertText: '"items": [1, 2, 3]', detail: 'JSON array' },
+        ],
+        markdown: [
+          { label: 'header', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '# Header', detail: 'Markdown header' },
+          { label: 'list', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '- item', detail: 'Markdown list' },
+          { label: 'code', kind: monaco.languages.CompletionItemKind.Snippet, insertText: '```js\nconsole.log("Hello World");\n```', detail: 'Markdown code block' },
+        ],
+        sql: [
+          { label: 'SELECT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'SELECT * FROM table;', detail: 'SQL SELECT' },
+          { label: 'INSERT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'INSERT INTO table VALUES (...);', detail: 'SQL INSERT' },
+          { label: 'JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'SELECT * FROM table1 JOIN table2 ON table1.id = table2.id;', detail: 'SQL JOIN' },
+        ],
+        // Add more languages and suggestions as needed
+      };
+
+      Object.keys(languageSuggestions).forEach(lang => {
+        monaco.languages.registerCompletionItemProvider(lang, {
+          provideCompletionItems: function(model, position) {
+            const word = model.getWordUntilPosition(position);
+            console.log(`[DEBUG] Completion requested for word:`, word, 'in language:', lang);
+            const suggestions = languageSuggestions[lang] || [];
+            console.log('[DEBUG] Suggestions returned:', suggestions);
+            return { suggestions };
+          }
+        });
+      });
+    } else {
+      console.log('[DEBUG] Monaco completion provider API not available');
+    }
   };
 
    const handleJoinFromLanding = (newRoomId, newUserName) => {
@@ -361,10 +672,21 @@ const App = () => {
             </ul>
             <p className="typing-indicator">{typing}</p>
             
+            {/* File Explorer Component */}
+            <FileExplorer
+              files={files}
+              activeFile={activeFile}
+              onFileCreate={handleFileCreate}
+              onFileDelete={handleFileDelete}
+              onFileRename={handleFileRename}
+              onFileSwitch={handleFileSwitch}
+              userName={userName}
+            />
+            
             <div className="file-controls">
-              <h3>File & Language</h3>
+              <h3>Current File Settings</h3>
               <div className="filename-input-group">
-                <label htmlFor="filename">Filename:</label>
+                <label htmlFor="filename">Active File:</label>
                 <input
                   id="filename"
                   type="text"
@@ -373,7 +695,7 @@ const App = () => {
                   onChange={handleFilenameChange}
                   placeholder="e.g., main.js, script.py"
                 />
-                <button onClick={saveFilenameChange} className="save-filename-btn">Save Filename</button>
+                <button onClick={saveFilenameChange} className="save-filename-btn">Rename</button>
               </div>
               
               <div className="language-selector-group">
@@ -474,11 +796,21 @@ const App = () => {
         }
         editor={
           <div className="editor-wrapper">
+            <div className="editor-header">
+              <span className="current-file-indicator">
+                📄 {activeFile || filename} 
+                {activeFile && (
+                  <span className="file-language-badge">
+                    {getLanguageDisplayName(currentFileLanguage)}
+                  </span>
+                )}
+              </span>
+            </div>
             <Editor
-              height={"100%"}
-              defaultLanguage={language}
-              language={language}
-              value={code}
+              height={"calc(100% - 40px)"}
+              defaultLanguage={currentFileLanguage}
+              language={currentFileLanguage}
+              value={currentFileContent || code}
               onChange={handleChange}
               onMount={handleEditorOnMount}
               theme={theme === "dark" ? "vs-dark" : "vs-light"}

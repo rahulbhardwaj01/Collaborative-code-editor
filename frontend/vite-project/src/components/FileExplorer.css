@@ -1,0 +1,205 @@
+.file-explorer {
+  background: var(--explorer-bg, #252526);
+  border: 1px solid var(--explorer-border, #404040);
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.file-explorer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--explorer-header-bg, #2d2d2d);
+  border-bottom: 1px solid var(--explorer-border, #404040);
+  border-radius: 4px 4px 0 0;
+}
+
+.file-explorer-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--explorer-text, #cccccc);
+}
+
+.new-file-btn {
+  background: var(--btn-primary-bg, #007acc);
+  border: none;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.new-file-btn:hover {
+  background: var(--btn-primary-hover, #0086d1);
+}
+
+.new-file-form-container {
+  padding: 12px;
+  background: var(--form-bg, #1e1e1e);
+  border-bottom: 1px solid var(--explorer-border, #404040);
+}
+
+.new-file-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.new-file-input {
+  background: var(--input-bg, #3c3c3c);
+  border: 1px solid var(--input-border, #555555);
+  color: var(--input-text, #ffffff);
+  padding: 6px 8px;
+  border-radius: 3px;
+  font-size: 13px;
+  outline: none;
+}
+
+.new-file-input:focus {
+  border-color: var(--input-focus-border, #007acc);
+}
+
+.new-file-buttons {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.create-btn, .cancel-btn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.create-btn {
+  background: var(--btn-success-bg, #28a745);
+  color: white;
+}
+
+.create-btn:hover {
+  background: var(--btn-success-hover, #218838);
+}
+
+.cancel-btn {
+  background: var(--btn-secondary-bg, #6c757d);
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: var(--btn-secondary-hover, #5a6268);
+}
+
+.file-tabs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.no-files-message {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted, #888888);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.context-menu {
+  background: var(--menu-bg, #2d2d2d);
+  border: 1px solid var(--menu-border, #454545);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  min-width: 120px;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: var(--menu-text, #cccccc);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.context-menu-item:hover:not(:disabled) {
+  background: var(--menu-hover-bg, #3d3d3d);
+}
+
+.context-menu-item:disabled {
+  color: var(--menu-text-disabled, #666666);
+  cursor: not-allowed;
+}
+
+/* Light mode styles */
+.light-mode .file-explorer {
+  --explorer-bg: #ffffff;
+  --explorer-border: #d0d0d0;
+  --explorer-header-bg: #f8f9fa;
+  --explorer-text: #333333;
+  --btn-primary-bg: #007acc;
+  --btn-primary-hover: #0086d1;
+  --form-bg: #f8f9fa;
+  --input-bg: #ffffff;
+  --input-border: #ced4da;
+  --input-text: #333333;
+  --input-focus-border: #007acc;
+  --btn-success-bg: #28a745;
+  --btn-success-hover: #218838;
+  --btn-secondary-bg: #6c757d;
+  --btn-secondary-hover: #5a6268;
+  --text-muted: #666666;
+  --menu-bg: #ffffff;
+  --menu-border: #d0d0d0;
+  --menu-text: #333333;
+  --menu-hover-bg: #f8f9fa;
+  --menu-text-disabled: #999999;
+}
+
+/* Scrollbar styling */
+.file-tabs-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-tabs-container::-webkit-scrollbar-track {
+  background: var(--scrollbar-track, #1e1e1e);
+}
+
+.file-tabs-container::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #404040);
+  border-radius: 3px;
+}
+
+.file-tabs-container::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover, #555555);
+}
+
+.light-mode .file-tabs-container::-webkit-scrollbar-track {
+  background: var(--scrollbar-track, #f1f1f1);
+}
+
+.light-mode .file-tabs-container::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #c1c1c1);
+}
+
+.light-mode .file-tabs-container::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover, #a8a8a8);
+}

@@ -2,6 +2,42 @@
 
 Welcome to the Collaborative Code Editor project! We're excited to have you as part of GSSoC 2025. This document will guide you through the contribution process and help you get started.
 
+## 📑 Table of Contents
+- [🚀 Getting Started](#-getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Quick Start](#quick-start)
+- [📋 GSSoC 2025 Guidelines](#-gssoc-2025-guidelines)
+  - [Project Structure](#project-structure)
+  - [Available Issues](#available-issues)
+  - [Contribution Areas](#contribution-areas)
+- [🛠️ Development Setup](#-development-setup)
+  - [Backend Setup](#backend-setup)
+  - [Frontend Setup](#frontend-setup)
+  - [Environment Variables](#environment-variables)
+- [📝 Code Standards](#-code-standards)
+  - [JavaScript/React](#javascriptreact)
+  - [Git Commit Messages](#git-commit-messages)
+  - [Pull Request Guidelines](#pull-request-guidelines)
+- [🧪 Testing](#-testing)
+  - [Frontend Testing](#frontend-testing)
+  - [Backend Testing](#backend-testing)
+  - [Manual Testing](#manual-testing)
+- [📚 Learning Resources](#-learning-resources)
+- [🤝 Communication](#-communication)
+  - [Getting Help](#getting-help)
+  - [Code Reviews](#code-reviews)
+- [🏆 GSSoC 2025 Evaluation](#-gssoc-2025-evaluation)
+- [🎯 Milestone Goals](#-milestone-goals)
+  - [Phase 1: Onboarding](#phase-1-onboarding)
+  - [Phase 2: Active Development](#phase-2-active-development)
+  - [Phase 3: Project Completion](#phase-3-project-completion)
+- [🚨 Important Notes](#-important-notes)
+  - [Code of Conduct](#code-of-conduct)
+  - [Intellectual Property](#intellectual-property)
+  - [Security](#security)
+- [📞 Contact Information](#-contact-information)
+- [🎉 Welcome to GSSoC 2025!](#-welcome-to-gssoc-2025)
+
 ## 🚀 Getting Started
 
 ### Prerequisites

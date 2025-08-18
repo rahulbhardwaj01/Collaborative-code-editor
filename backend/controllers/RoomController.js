@@ -153,6 +153,36 @@ class RoomController {
   constructor(io) {
     this.io = io; // Store io instance for broadcasting
   }
+  
+  // Handle remote cursor movement
+  handleCursorMove(socket, { roomId, filename, position, userId, userName }) {
+    try {
+      // Broadcast to all users in the room except sender
+      socket.to(roomId).emit("cursorPosition", {
+        roomId,
+        filename,
+        position,
+        userId,
+        userName,
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Error in handleCursorMove:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Handle clearing of a user's cursor (e.g., on leave/disconnect)
+  handleCursorClear(socket, { roomId, userId }) {
+    try {
+      // Broadcast to all users in the room except sender
+      socket.to(roomId).emit("cursorCleared", { userId });
+      return { success: true };
+    } catch (error) {
+      console.error('Error in handleCursorClear:', error);
+      return { success: false, error: error.message };
+    }
+  }
   // Handle user joining a room
   handleJoinRoom(socket, { roomId, userName }) {
     try {
@@ -298,6 +328,8 @@ class RoomController {
         if (roomId) {
           const { users } = roomService.removeUserFromRoom(roomId, userName);
           socket.to(roomId).emit("userJoined", users);
+          // Inform clients to clear this user's cursor
+          socket.to(roomId).emit("cursorCleared", { userId: socket.id });
         }
 
         userService.removeUser(socket.id);

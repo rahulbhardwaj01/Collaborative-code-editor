@@ -229,7 +229,7 @@ const FileExplorer = ({
             <FileTab
               file={file}
               isActive={file.filename === activeFile}
-              onClick={() => onFileSwitch(file.filename, userName)}
+              // onClick={() => onFileSwitch(file.filename, userName)}
               onClose={files.length > 1 ? (filename) => handleFileDelete(filename) : null}
               onRename={onFileRename}
               isRenamable={true}

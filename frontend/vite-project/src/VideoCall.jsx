@@ -42,70 +42,109 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
     }
   }, [cameraOn, micOn, myStream]);
 
-  // Toggle camera with proper stream management
+  // Toggle camera with lazy media access
   const toggleCamera = async () => {
     const newCameraState = !cameraOn;
-    setCameraOn(newCameraState);
     
-    // Notify backend of camera toggle
-    socket.emit("toggle-camera");
-    
-    // Update stream with new camera state
-    if (myStream) {
-      const videoTrack = myStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = newCameraState;
+    try {
+      setIsInitializing(true);
+      setMediaError(null);
+      
+      if (newCameraState && !myStream) {
+        // First time enabling camera - request permission
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: micOn
+        });
+        setMyStream(stream);
+        
+        // Update all peer connections with new stream
+        Object.values(peerConnectionsRef.current).forEach(peer => {
+          if (peer && peer.replaceTrack) {
+            const videoTrack = stream.getVideoTracks()[0];
+            if (videoTrack) {
+              peer.replaceTrack(null, videoTrack, stream);
+            }
+          }
+        });
+      } else if (myStream) {
+        const videoTrack = myStream.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.enabled = newCameraState;
+        }
       }
+      
+      setCameraOn(newCameraState);
+      socket.emit("toggle-camera");
+      
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      setMediaError('Camera access denied or unavailable');
+      setCameraOn(false);
+    } finally {
+      setIsInitializing(false);
     }
   };
 
-  // Toggle microphone with improved state management
+  // Toggle microphone with lazy media access
   const toggleMic = async () => {
     const newMicState = !micOn;
     
     try {
-      // Notify backend of microphone toggle
-      socket.emit("toggle-microphone");
-      
-      // Update local state
-      setMicOn(newMicState);
+      setIsInitializing(true);
       setMediaError(null);
       
-      // Handle stream track enabling/disabling
-      if (myStream) {
+      if (newMicState && !myStream) {
+        // First time enabling microphone - request permission
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: cameraOn,
+          audio: true
+        });
+        setMyStream(stream);
+        
+        // Update all peer connections with new stream
+        Object.values(peerConnectionsRef.current).forEach(peer => {
+          if (peer && peer.replaceTrack) {
+            const audioTrack = stream.getAudioTracks()[0];
+            if (audioTrack) {
+              peer.replaceTrack(null, audioTrack, stream);
+            }
+          }
+        });
+      } else if (newMicState && myStream && !myStream.getAudioTracks()[0]) {
+        // Stream exists but no audio track - add audio track
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const newAudioTrack = audioStream.getAudioTracks()[0];
+        
+        if (newAudioTrack) {
+          myStream.addTrack(newAudioTrack);
+          
+          // Update all peer connections with new audio track
+          Object.values(peerConnectionsRef.current).forEach(peer => {
+            if (peer && peer._pc) {
+              peer._pc.addTrack(newAudioTrack, myStream);
+            }
+          });
+          
+          setMyStream(myStream);
+        }
+      } else if (myStream) {
+        // Stream exists with audio track - just enable/disable
         const audioTrack = myStream.getAudioTracks()[0];
         if (audioTrack) {
           audioTrack.enabled = newMicState;
-        } else if (newMicState) {
-          // If no audio track exists, request microphone permission
-          try {
-            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const newAudioTrack = audioStream.getAudioTracks()[0];
-            
-            if (newAudioTrack) {
-              myStream.addTrack(newAudioTrack);
-              newAudioTrack.enabled = true;
-              
-              // Update all peer connections with new audio track
-              Object.values(peerConnectionsRef.current).forEach(peer => {
-                if (peer && peer._pc) {
-                  peer._pc.addTrack(newAudioTrack, myStream);
-                }
-              });
-              
-              setMyStream(myStream);
-            }
-          } catch (err) {
-            console.error('Error accessing microphone:', err);
-            setMediaError('Microphone access denied or unavailable');
-            setMicOn(false);
-          }
         }
       }
+      
+      setMicOn(newMicState);
+      socket.emit("toggle-microphone");
+      
     } catch (err) {
-      console.error('Error toggling microphone:', err);
-      setMediaError('Failed to toggle microphone');
-      setMicOn(!newMicState); // Revert state on error
+      console.error('Error accessing microphone:', err);
+      setMediaError('Microphone access denied or unavailable');
+      setMicOn(false);
+    } finally {
+      setIsInitializing(false);
     }
   };
 
@@ -154,47 +193,12 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
     let localStream = null;
     let myPeerId = socket.id;
     
-    setIsInitializing(true);
     setMediaError(null);
 
     // Join call room
     socket.emit("join-call", { roomId, userName });
 
-    // Get initial media stream (always request both audio and video)
-    navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true,
-    }).then((stream) => {
-      if (cleanup) return;
-      localStream = stream;
-      setMyStream(stream);
-      setIsInitializing(false);
-      
-      // Set initial track states
-      const videoTrack = stream.getVideoTracks()[0];
-      const audioTrack = stream.getAudioTracks()[0];
-      
-      if (videoTrack) videoTrack.enabled = cameraOn;
-      if (audioTrack) audioTrack.enabled = micOn;
-    }).catch((err) => {
-      console.error('Error accessing media devices:', err);
-      setMediaError('Camera access denied');
-      
-      // Try audio-only if video fails
-      navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-        if (cleanup) return;
-        localStream = stream;
-        setMyStream(stream);
-        setIsInitializing(false);
-        const audioTrack = stream.getAudioTracks()[0];
-        if (audioTrack) audioTrack.enabled = micOn;
-      }).catch((audioErr) => {
-        console.error('Error accessing audio device:', audioErr);
-        setMediaError('Microphone access denied or unavailable');
-        setMyStream(null);
-        setIsInitializing(false);
-      });
-    });
+    // Don't request media access automatically - wait for user to click buttons
 
     // Handle new user joining
     socket.on("user-joined-call", ({ userName: remoteName, socketId }) => {
@@ -202,7 +206,7 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
       const peer = new SimplePeer({
         initiator: true,
         trickle: false,
-        stream: localStream,
+        stream: myStream, // Use current stream (may be null initially)
       });
       peer.on("signal", (signal) => {
         socket.emit("signal", { roomId, signal, to: socketId });
@@ -230,7 +234,7 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
         peer = new SimplePeer({
           initiator: false,
           trickle: false,
-          stream: localStream,
+          stream: myStream, // Use current stream (may be null initially)
         });
         peerConnectionsRef.current[from] = peer;
         peer.on("signal", (signal) => {
@@ -269,27 +273,32 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
       Object.values(peerConnectionsRef.current).forEach((peer) => peer.destroy());
       peerConnectionsRef.current = {};
       setPeers([]);
-      if (localStream) {
-        localStream.getTracks().forEach((track) => track.stop());
+      if (myStream) {
+        myStream.getTracks().forEach((track) => track.stop());
       }
     };
     // eslint-disable-next-line
   }, [joined, roomId, userName]);
 
-  // Handle microphone and camera state changes without recreating stream
+  // Update peer connections when stream changes
   useEffect(() => {
     if (myStream) {
-      const videoTrack = myStream.getVideoTracks()[0];
-      const audioTrack = myStream.getAudioTracks()[0];
-      
-      if (videoTrack) {
-        videoTrack.enabled = cameraOn;
-      }
-      if (audioTrack) {
-        audioTrack.enabled = micOn;
-      }
+      // Update all existing peer connections with the new stream
+      Object.values(peerConnectionsRef.current).forEach(peer => {
+        if (peer && peer.replaceTrack) {
+          const videoTrack = myStream.getVideoTracks()[0];
+          const audioTrack = myStream.getAudioTracks()[0];
+          
+          if (videoTrack) {
+            peer.replaceTrack(null, videoTrack, myStream);
+          }
+          if (audioTrack) {
+            peer.replaceTrack(null, audioTrack, myStream);
+          }
+        }
+      });
     }
-  }, [cameraOn, micOn, myStream]);
+  }, [myStream]);
 
   // Handle remote microphone toggle events
   useEffect(() => {
@@ -435,14 +444,14 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
           disabled={isInitializing}
           className={cameraOn ? "active" : ""}
         >
-          {cameraOn ? "📷 Camera On" : "📷 Camera Off"}
+          {cameraOn ? "📷 Camera On" : "📷 Enable Camera"}
         </button>
         <button 
           onClick={toggleMic}
           disabled={isInitializing}
           className={micOn ? "active" : ""}
         >
-          {micOn ? "🎤 Unmute" : "🔇 Mute"}
+          {micOn ? "🎤 Mic On" : "🎤 Enable Mic"}
         </button>
       </div>
       <div className="video-call-videos">

@@ -24,6 +24,7 @@ import {
 } from "./utils/fileTypeDetection";
 
 import BackToTop from "./components/ui/BackToTop";
+import KeyboardShortcuts from "./components/KeyboardShortcuts";
 
 import * as monaco from 'monaco-editor';
 
@@ -64,6 +65,9 @@ const App = () => {
   // Resizable panel states
   const [isChatDetached, setIsChatDetached] = useState(false);
   const [isChatMinimized, setIsChatMinimized] = useState(false);
+  
+  // Keyboard shortcuts help modal
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
   // Monaco editor and remote cursors
   const editorRef = useRef(null);
@@ -634,23 +638,456 @@ const App = () => {
     }
   };
 
+  // Enhanced keyboard shortcuts system
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Don't trigger shortcuts when typing in input fields
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === "z" && !e.shiftKey) {
-          e.preventDefault();
-          handleUndo();
-        } else if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
-          e.preventDefault();
-          handleRedo();
+        switch (e.key) {
+          // File operations
+          case 's':
+            e.preventDefault();
+            // Auto-save current file
+            if (activeFile && currentFileContent !== undefined) {
+              socket.emit('fileCodeChange', { roomId, filename: activeFile, code: currentFileContent });
+              toast({
+                title: "File Saved",
+                description: `${activeFile} saved successfully`,
+                duration: 2000,
+              });
+            }
+            break;
+          
+          case 'n':
+            e.preventDefault();
+            // Create new file
+            const newFileName = prompt("Enter new file name:");
+            if (newFileName && newFileName.trim()) {
+              handleFileCreate(newFileName.trim(), userName);
+            }
+            break;
+          
+          case 'o':
+            e.preventDefault();
+            // Quick file switcher
+            if (files.length > 0) {
+              const fileList = files.map((f, i) => `${i + 1}. ${f.filename}`).join('\n');
+              const choice = prompt(`Switch to file:\n${fileList}\n\nEnter file number or name:`);
+              if (choice) {
+                const fileIndex = parseInt(choice) - 1;
+                const targetFile = files[fileIndex] || files.find(f => f.filename.includes(choice));
+                if (targetFile) {
+                  handleFileSwitch(targetFile.filename, userName);
+                }
+              }
+            }
+            break;
+          
+          case 'd':
+            e.preventDefault();
+            // Duplicate current line or selection
+            if (editorRef.current) {
+              const editor = editorRef.current;
+              const selection = editor.getSelection();
+              const model = editor.getModel();
+              
+              if (selection.isEmpty()) {
+                // Duplicate current line
+                const lineNumber = selection.startLineNumber;
+                const lineContent = model.getLineContent(lineNumber);
+                const range = new monaco.Range(lineNumber, model.getLineMaxColumn(lineNumber), lineNumber, model.getLineMaxColumn(lineNumber));
+                editor.executeEdits('duplicate-line', [{
+                  range: range,
+                  text: '\n' + lineContent
+                }]);
+              } else {
+                // Duplicate selection
+                const selectedText = model.getValueInRange(selection);
+                editor.executeEdits('duplicate-selection', [{
+                  range: new monaco.Range(selection.endLineNumber, selection.endColumn, selection.endLineNumber, selection.endColumn),
+                  text: selectedText
+                }]);
+              }
+            }
+            break;
+          
+          case 'k':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Delete current line
+              if (editorRef.current) {
+                const editor = editorRef.current;
+                const position = editor.getPosition();
+                const model = editor.getModel();
+                const lineNumber = position.lineNumber;
+                const range = new monaco.Range(lineNumber, 1, lineNumber + 1, 1);
+                editor.executeEdits('delete-line', [{
+                  range: range,
+                  text: ''
+                }]);
+              }
+            } else {
+              e.preventDefault();
+              // Clear chat (existing functionality)
+              setChatMessages([]);
+              toast({
+                title: "Chat Cleared",
+                description: "Chat history has been cleared",
+                duration: 2000,
+              });
+            }
+            break;
+          
+          case 'f':
+            e.preventDefault();
+            // Trigger Monaco's find dialog
+            if (editorRef.current) {
+              editorRef.current.trigger('keyboard', 'actions.find');
+            }
+            break;
+          
+          case 'h':
+            e.preventDefault();
+            // Trigger Monaco's find and replace dialog
+            if (editorRef.current) {
+              editorRef.current.trigger('keyboard', 'editor.action.startFindReplaceAction');
+            }
+            break;
+          
+          case 'g':
+            e.preventDefault();
+            // Go to line
+            if (editorRef.current) {
+              editorRef.current.trigger('keyboard', 'editor.action.gotoLine');
+            }
+            break;
+          
+          case 'b':
+            e.preventDefault();
+            // Toggle file explorer/sidebar
+            const sidebar = document.querySelector('.file-explorer');
+            if (sidebar) {
+              sidebar.style.display = sidebar.style.display === 'none' ? 'block' : 'none';
+            }
+            break;
+          
+          case 'j':
+            e.preventDefault();
+            // Toggle chat window
+            setIsChatMinimized(!isChatMinimized);
+            break;
+          
+          case 'p':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Show keyboard shortcuts help modal
+              setShowShortcutsHelp(true);
+            }
+            break;
+          
+          case 't':
+            e.preventDefault();
+            // Toggle theme
+            toggleTheme();
+            break;
+          
+          case 'v':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Show version history
+              setShowVersionHistory(!showVersionHistory);
+            }
+            break;
+          
+          case 'c':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Create checkpoint
+              createCheckpoint();
+            }
+            break;
+          
+          case 'l':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Select all occurrences of current word
+              if (editorRef.current) {
+                editorRef.current.trigger('keyboard', 'editor.action.selectHighlights');
+              }
+            }
+            break;
+          
+          case 'i':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Auto-format document
+              if (editorRef.current) {
+                editorRef.current.trigger('keyboard', 'editor.action.formatDocument');
+                toast({
+                  title: "Code Formatted",
+                  description: "Document has been auto-formatted",
+                  duration: 2000,
+                });
+              }
+            }
+            break;
+          
+          case 'e':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Quick language switcher
+              const popularLangs = getPopularLanguages();
+              const langList = popularLangs.map((lang, i) => `${i + 1}. ${getLanguageDisplayName(lang)}`).join('\n');
+              const choice = prompt(`Switch language:\n${langList}\n\nEnter number or language name:`);
+              if (choice) {
+                const langIndex = parseInt(choice) - 1;
+                const targetLang = popularLangs[langIndex] || popularLangs.find(lang => 
+                  getLanguageDisplayName(lang).toLowerCase().includes(choice.toLowerCase())
+                );
+                if (targetLang) {
+                  handleManualLanguageChange({ target: { value: targetLang } });
+                }
+              }
+            }
+            break;
+          
+          case 'r':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Quick rename current file
+              if (activeFile) {
+                const newName = prompt(`Rename file "${activeFile}" to:`, activeFile);
+                if (newName && newName.trim() && newName !== activeFile) {
+                  handleFileRename(activeFile, newName.trim());
+                }
+              }
+            }
+            break;
+          
+          case 'w':
+            e.preventDefault();
+            // Close current file (if multiple files exist)
+            if (files.length > 1 && activeFile) {
+              const confirmDelete = confirm(`Close file "${activeFile}"? This will delete it permanently.`);
+              if (confirmDelete) {
+                handleFileDelete(activeFile, userName);
+              }
+            }
+            break;
+          
+          case 'a':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Select all text in editor
+              if (editorRef.current) {
+                editorRef.current.trigger('keyboard', 'editor.action.selectAll');
+              }
+            }
+            break;
+          
+          case 'm':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Toggle minimap
+              if (editorRef.current) {
+                const currentOptions = editorRef.current.getOptions();
+                const minimapEnabled = currentOptions.get(monaco.editor.EditorOption.minimap).enabled;
+                editorRef.current.updateOptions({
+                  minimap: { enabled: !minimapEnabled }
+                });
+                toast({
+                  title: "Minimap " + (!minimapEnabled ? "Enabled" : "Disabled"),
+                  duration: 2000,
+                });
+              }
+            }
+            break;
+          
+          case 'q':
+            if (e.shiftKey) {
+              e.preventDefault();
+              // Quick actions menu
+              const actions = [
+                '1. Format Document',
+                '2. Toggle Word Wrap',
+                '3. Toggle Line Numbers',
+                '4. Toggle Minimap',
+                '5. Fold All',
+                '6. Unfold All',
+                '7. Copy File Path',
+                '8. Show File Info'
+              ];
+              const choice = prompt(`Quick Actions:\n${actions.join('\n')}\n\nEnter action number:`);
+              const actionNum = parseInt(choice);
+              
+              if (editorRef.current) {
+                switch (actionNum) {
+                  case 1:
+                    editorRef.current.trigger('keyboard', 'editor.action.formatDocument');
+                    break;
+                  case 2:
+                    const wordWrapEnabled = editorRef.current.getOptions().get(monaco.editor.EditorOption.wordWrap) !== 'off';
+                    editorRef.current.updateOptions({ wordWrap: wordWrapEnabled ? 'off' : 'on' });
+                    break;
+                  case 3:
+                    const lineNumbersEnabled = editorRef.current.getOptions().get(monaco.editor.EditorOption.lineNumbers).renderType !== 0;
+                    editorRef.current.updateOptions({ lineNumbers: lineNumbersEnabled ? 'off' : 'on' });
+                    break;
+                  case 4:
+                    const minimapEnabled = editorRef.current.getOptions().get(monaco.editor.EditorOption.minimap).enabled;
+                    editorRef.current.updateOptions({ minimap: { enabled: !minimapEnabled } });
+                    break;
+                  case 5:
+                    editorRef.current.trigger('keyboard', 'editor.foldAll');
+                    break;
+                  case 6:
+                    editorRef.current.trigger('keyboard', 'editor.unfoldAll');
+                    break;
+                  case 7:
+                    if (activeFile) {
+                      navigator.clipboard.writeText(activeFile);
+                      toast({ title: "File path copied", duration: 2000 });
+                    }
+                    break;
+                  case 8:
+                    if (activeFile) {
+                      const model = editorRef.current.getModel();
+                      const lineCount = model.getLineCount();
+                      const charCount = model.getValueLength();
+                      alert(`File: ${activeFile}\nLines: ${lineCount}\nCharacters: ${charCount}\nLanguage: ${currentFileLanguage}`);
+                    }
+                    break;
+                }
+              }
+            }
+            break;
+          
+          // Undo/Redo (existing functionality)
+          case 'z':
+            if (!e.shiftKey) {
+              e.preventDefault();
+              handleUndo();
+            } else {
+              e.preventDefault();
+              handleRedo();
+            }
+            break;
+          
+          case 'y':
+            e.preventDefault();
+            handleRedo();
+            break;
         }
       }
+      
+      // Non-Ctrl shortcuts
+      switch (e.key) {
+        case '/':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            // Toggle line comment
+            if (editorRef.current) {
+              if (e.shiftKey) {
+                editorRef.current.trigger('keyboard', 'editor.action.blockComment');
+              } else {
+                editorRef.current.trigger('keyboard', 'editor.action.commentLine');
+              }
+            }
+          }
+          break;
+        
+        case 'Tab':
+          // Enhanced tab behavior for snippets
+          if (!e.ctrlKey && !e.altKey && editorRef.current) {
+            const editor = editorRef.current;
+            const position = editor.getPosition();
+            const model = editor.getModel();
+            const lineContent = model.getLineContent(position.lineNumber);
+            const wordRange = model.getWordAtPosition(position);
+            
+            if (wordRange) {
+              const word = model.getValueInRange(wordRange);
+              const snippets = {
+                'log': 'console.log()',
+                'func': 'function ${1:name}(${2:params}) {\n    ${3:// body}\n}',
+                'arrow': '(${1:params}) => {\n    ${2:// body}\n}',
+                'if': 'if (${1:condition}) {\n    ${2:// body}\n}',
+                'for': 'for (let ${1:i} = 0; ${1:i} < ${2:length}; ${1:i}++) {\n    ${3:// body}\n}',
+                'while': 'while (${1:condition}) {\n    ${2:// body}\n}',
+                'try': 'try {\n    ${1:// body}\n} catch (${2:error}) {\n    ${3:// error handling}\n}',
+                'class': 'class ${1:ClassName} {\n    constructor(${2:params}) {\n        ${3:// constructor body}\n    }\n}',
+                'import': 'import ${1:module} from \'${2:path}\';',
+                'export': 'export default ${1:value};',
+                'async': 'async function ${1:name}(${2:params}) {\n    ${3:// body}\n}',
+                'await': 'await ${1:promise}',
+                'promise': 'new Promise((resolve, reject) => {\n    ${1:// body}\n})',
+                'timeout': 'setTimeout(() => {\n    ${1:// body}\n}, ${2:1000});',
+                'interval': 'setInterval(() => {\n    ${1:// body}\n}, ${2:1000});'
+              };
+              
+              if (snippets[word]) {
+                e.preventDefault();
+                const snippet = snippets[word];
+                editor.executeEdits('insert-snippet', [{
+                  range: wordRange,
+                  text: snippet
+                }]);
+                return;
+              }
+            }
+          }
+          break;
+        
+        case 'F2':
+          e.preventDefault();
+          // Rename symbol
+          if (editorRef.current) {
+            editorRef.current.trigger('keyboard', 'editor.action.rename');
+          }
+          break;
+        
+        case 'ArrowUp':
+          if (e.altKey) {
+            e.preventDefault();
+            // Move line up
+            if (editorRef.current) {
+              editorRef.current.trigger('keyboard', 'editor.action.moveLinesUpAction');
+            }
+          }
+          break;
+        
+        case 'ArrowDown':
+          if (e.altKey) {
+            e.preventDefault();
+            // Move line down
+            if (editorRef.current) {
+              editorRef.current.trigger('keyboard', 'editor.action.moveLinesDownAction');
+            }
+          }
+          break;
+        
+        case 'Escape':
+          // Close dialogs/panels
+          if (showShortcutsHelp) {
+            setShowShortcutsHelp(false);
+          } else if (showVersionHistory) {
+            setShowVersionHistory(false);
+          } else if (showAllLanguages) {
+            setShowAllLanguages(false);
+          }
+          break;
+      }
     };
+
     if (joined) {
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
-  }, [joined, handleUndo, handleRedo]);
+  }, [joined, handleUndo, handleRedo, activeFile, currentFileContent, roomId, userName, files, isChatMinimized, showVersionHistory, showAllLanguages, showShortcutsHelp, toggleTheme, createCheckpoint]);
 
   const sendChatMessage = (e) => {
     e.preventDefault();
@@ -842,9 +1279,18 @@ const App = () => {
       <ResizableLayout
         sidebar={
           <div className="sidebar">
-            <button onClick={toggleTheme} className="theme-toggle-btn">
-              {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
-            </button>
+            <div className="sidebar-controls">
+              <button onClick={toggleTheme} className="theme-toggle-btn">
+                {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+              </button>
+              <button 
+                onClick={() => setShowShortcutsHelp(true)} 
+                className="help-btn"
+                title="Keyboard Shortcuts (Ctrl+Shift+P)"
+              >
+                ⌨️ Shortcuts
+              </button>
+            </div>
             <div className="room-info">
               <h2>Code Room: {roomId}</h2>
               <button 
@@ -1085,6 +1531,12 @@ const App = () => {
         roomId={roomId}
         isOpen={showVersionHistory}
         onClose={() => setShowVersionHistory(false)}
+      />
+
+      {/* Keyboard Shortcuts Help Modal */}
+      <KeyboardShortcuts
+        isOpen={showShortcutsHelp}
+        onClose={() => setShowShortcutsHelp(false)}
       />
     </>
           </TooltipProvider>

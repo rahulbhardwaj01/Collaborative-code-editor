@@ -50,27 +50,47 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
       setIsInitializing(true);
       setMediaError(null);
       
-      if (newCameraState && !myStream) {
-        // First time enabling camera - request permission
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: micOn
-        });
-        setMyStream(stream);
-        
-        // Update all peer connections with new stream
-        Object.values(peerConnectionsRef.current).forEach(peer => {
-          if (peer && peer.replaceTrack) {
-            const videoTrack = stream.getVideoTracks()[0];
-            if (videoTrack) {
-              peer.replaceTrack(null, videoTrack, stream);
+      if (newCameraState) {
+        // Turning camera ON
+        if (!myStream) {
+          // First time - request permission
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: micOn
+          });
+          setMyStream(stream);
+          
+          // Update all peer connections with new stream
+          Object.values(peerConnectionsRef.current).forEach(peer => {
+            if (peer && peer.replaceTrack) {
+              const videoTrack = stream.getVideoTracks()[0];
+              if (videoTrack) {
+                peer.replaceTrack(null, videoTrack, stream);
+              }
+            }
+          });
+        } else {
+          // Stream exists - enable video track
+          const videoTrack = myStream.getVideoTracks()[0];
+          if (videoTrack) {
+            videoTrack.enabled = true;
+          } else {
+            // No video track - add one
+            const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const newVideoTrack = videoStream.getVideoTracks()[0];
+            if (newVideoTrack) {
+              myStream.addTrack(newVideoTrack);
+              setMyStream(myStream);
             }
           }
-        });
-      } else if (myStream) {
-        const videoTrack = myStream.getVideoTracks()[0];
-        if (videoTrack) {
-          videoTrack.enabled = newCameraState;
+        }
+      } else {
+        // Turning camera OFF
+        if (myStream) {
+          const videoTrack = myStream.getVideoTracks()[0];
+          if (videoTrack) {
+            videoTrack.enabled = false;
+          }
         }
       }
       
@@ -94,45 +114,47 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
       setIsInitializing(true);
       setMediaError(null);
       
-      if (newMicState && !myStream) {
-        // First time enabling microphone - request permission
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: cameraOn,
-          audio: true
-        });
-        setMyStream(stream);
-        
-        // Update all peer connections with new stream
-        Object.values(peerConnectionsRef.current).forEach(peer => {
-          if (peer && peer.replaceTrack) {
-            const audioTrack = stream.getAudioTracks()[0];
-            if (audioTrack) {
-              peer.replaceTrack(null, audioTrack, stream);
-            }
-          }
-        });
-      } else if (newMicState && myStream && !myStream.getAudioTracks()[0]) {
-        // Stream exists but no audio track - add audio track
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const newAudioTrack = audioStream.getAudioTracks()[0];
-        
-        if (newAudioTrack) {
-          myStream.addTrack(newAudioTrack);
+      if (newMicState) {
+        // Turning microphone ON
+        if (!myStream) {
+          // First time - request permission
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: cameraOn,
+            audio: true
+          });
+          setMyStream(stream);
           
-          // Update all peer connections with new audio track
+          // Update all peer connections with new stream
           Object.values(peerConnectionsRef.current).forEach(peer => {
-            if (peer && peer._pc) {
-              peer._pc.addTrack(newAudioTrack, myStream);
+            if (peer && peer.replaceTrack) {
+              const audioTrack = stream.getAudioTracks()[0];
+              if (audioTrack) {
+                peer.replaceTrack(null, audioTrack, stream);
+              }
             }
           });
-          
-          setMyStream(myStream);
+        } else {
+          // Stream exists - enable audio track
+          const audioTrack = myStream.getAudioTracks()[0];
+          if (audioTrack) {
+            audioTrack.enabled = true;
+          } else {
+            // No audio track - add one
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const newAudioTrack = audioStream.getAudioTracks()[0];
+            if (newAudioTrack) {
+              myStream.addTrack(newAudioTrack);
+              setMyStream(myStream);
+            }
+          }
         }
-      } else if (myStream) {
-        // Stream exists with audio track - just enable/disable
-        const audioTrack = myStream.getAudioTracks()[0];
-        if (audioTrack) {
-          audioTrack.enabled = newMicState;
+      } else {
+        // Turning microphone OFF
+        if (myStream) {
+          const audioTrack = myStream.getAudioTracks()[0];
+          if (audioTrack) {
+            audioTrack.enabled = false;
+          }
         }
       }
       
@@ -444,14 +466,14 @@ const VideoCall = ({ socket, roomId, userName, joined }) => {
           disabled={isInitializing}
           className={cameraOn ? "active" : ""}
         >
-          {cameraOn ? "📷 Camera On" : "📷 Enable Camera"}
+          {cameraOn ? "📷 Turn Off Camera" : "📷 Turn On Camera"}
         </button>
         <button 
           onClick={toggleMic}
           disabled={isInitializing}
           className={micOn ? "active" : ""}
         >
-          {micOn ? "🎤 Mic On" : "🎤 Enable Mic"}
+          {micOn ? "🔇 Turn Off Mic" : "🎤 Turn On Mic"}
         </button>
       </div>
       <div className="video-call-videos">

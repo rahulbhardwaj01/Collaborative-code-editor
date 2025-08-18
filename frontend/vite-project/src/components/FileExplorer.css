@@ -15,11 +15,120 @@
   border-radius: 4px 4px 0 0;
 }
 
+/* File Actions Toolbar */
+.file-actions-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--explorer-bg, #252526);
+  border-bottom: 1px solid var(--explorer-border, #404040);
+}
+
+.file-actions-toolbar .import-actions,
+.file-actions-toolbar .export-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.file-actions-toolbar button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--btn-border, #555);
+  background: var(--btn-bg, #3a3d41);
+  color: var(--btn-text, #e0e0e0);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-actions-toolbar button:hover {
+  background: var(--btn-hover-bg, #4a4e54);
+  border-color: var(--btn-hover-border, #666);
+}
+
+.file-actions-toolbar .import-files-btn {
+  background: var(--import-bg, #2c5b8e);
+  border-color: var(--import-border, #3a7cbf);
+}
+
+.file-actions-toolbar .import-folder-btn {
+  background: var(--import-bg, #2c5b8e);
+  border-color: var(--import-border, #3a7cbf);
+}
+
+.file-actions-toolbar .export-current-btn {
+  background: var(--export-bg, #2e7d32);
+  border-color: var(--export-border, #3d8b40);
+}
+
+.file-actions-toolbar .export-all-btn {
+  background: var(--export-bg, #2e7d32);
+  border-color: var(--export-border, #3d8b40);
+}
+
+.file-actions-toolbar .icon {
+  font-size: 14px;
+}
+
+/* Light mode adjustments */
+.light-mode .file-actions-toolbar {
+  background: var(--explorer-bg, #f5f5f5);
+  border-bottom-color: var(--explorer-border, #ddd);
+}
+
+.light-mode .file-actions-toolbar button {
+  background: var(--btn-bg, #e0e0e0);
+  color: var(--btn-text, #333);
+  border-color: var(--btn-border, #ccc);
+}
+
+.light-mode .file-actions-toolbar button:hover {
+  background: var(--btn-hover-bg, #d0d0d0);
+  border-color: var(--btn-hover-border, #bbb);
+}
+
 .file-explorer-header h3 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--explorer-text, #cccccc);
+}
+
+.file-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.file-actions button {
+  background: var(--btn-secondary-bg, #3a3d41);
+  color: #fff;
+  border: 1px solid var(--explorer-border, #404040);
+  border-radius: 3px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.file-actions button:hover {
+  background: var(--btn-secondary-hover, #4a4e54);
+  border-color: var(--input-focus-border, #007acc);
+}
+
+.light-mode .file-actions button {
+  background: var(--btn-secondary-bg, #e9ecef);
+  color: #333;
+  border-color: var(--explorer-border, #d0d0d0);
+}
+
+.light-mode .file-actions button:hover {
+  background: var(--btn-secondary-hover, #dee2e6);
+  border-color: var(--input-focus-border, #007acc);
 }
 
 .new-file-btn {

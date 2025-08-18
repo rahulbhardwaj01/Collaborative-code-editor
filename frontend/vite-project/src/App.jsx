@@ -72,7 +72,6 @@ const App = () => {
   const [codeChangeTimeout, setCodeChangeTimeout] = useState(null);
   const [theme, setTheme] = useState("dark");
 
-  const placeholderText = '  Start typing here...';
 
   // Scroll Control State
   const messagesEndRef = useRef(null);
@@ -885,10 +884,10 @@ const App = () => {
                 )}
               </span>
             </div>
+            <div style={{ position: "relative", height: "calc(100% - 40px)" }}>
             <Editor
-              height={"calc(100% - 40px)"}
+              height="100%"
               defaultLanguage={currentFileLanguage}
-              language={currentFileLanguage}
               value={currentFileContent || code}
               onChange={handleChange}
               onMount={handleEditorOnMount}
@@ -898,7 +897,17 @@ const App = () => {
                 fontSize: 14,
               }}
             />
-            <div className={`monaco-placeholder ${theme === 'dark' ? 'placeholder-dark' : 'placeholder-light'}`}>{placeholderText}</div>
+            {!(currentFileContent || code) && (
+              <div
+                className={`absolute top-0 left-[74px] text-sm pointer-events-none ${
+                  theme === "dark" ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                start typing here...
+              </div>
+            )}
+          </div>
+
             <VideoCall
               socket={socket}
               roomId={roomId}

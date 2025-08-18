@@ -403,6 +403,21 @@ const App = () => {
       ]);
     });
 
+    // Cursor position handlers
+    const onCursorPosition = (payload) => {
+      renderRemoteCursor(payload);
+    };
+
+    const onCursorCleared = (payload) => {
+      if (payload && payload.userId) {
+        clearRemoteCursor(payload.userId);
+      }
+    };
+
+    // Register cursor event listeners
+    socket.on('cursorPosition', onCursorPosition);
+    socket.on('cursorCleared', onCursorCleared);
+
     return () => {
       socket.off('cursorPosition', onCursorPosition);
       socket.off('cursorCleared', onCursorCleared);

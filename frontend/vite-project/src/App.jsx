@@ -661,14 +661,17 @@ const App = () => {
         return;
       }
 
+      // Prevent all Windows shortcuts when in our editor
       if (e.ctrlKey || e.metaKey) {
+        // Always prevent default for Ctrl/Cmd combinations to disable OS shortcuts
+        e.preventDefault();
+        e.stopPropagation();
         switch (e.key) {
           // File operations
           case 's':
-            e.preventDefault();
             // Auto-save current file
             if (activeFile && currentFileContent !== undefined) {
-              socket.emit('fileCodeChange', { roomId, filename: activeFile, code: currentFileContent });
+              socket.emit('saveFile', { roomId, filename: activeFile, code: currentFileContent, savedBy: userName });
               toast({
                 title: "File Saved",
                 description: `${activeFile} saved successfully`,
@@ -678,7 +681,6 @@ const App = () => {
             break;
           
           case 'n':
-            e.preventDefault();
             // Create new file
             const newFileName = prompt("Enter new file name:");
             if (newFileName && newFileName.trim()) {
@@ -687,7 +689,6 @@ const App = () => {
             break;
           
           case 'o':
-            e.preventDefault();
             // Quick file switcher
             if (files.length > 0) {
               const fileList = files.map((f, i) => `${i + 1}. ${f.filename}`).join('\n');
@@ -703,7 +704,6 @@ const App = () => {
             break;
           
           case 'd':
-            e.preventDefault();
             // Duplicate current line or selection
             if (editorRef.current) {
               const editor = editorRef.current;
@@ -732,7 +732,6 @@ const App = () => {
           
           case 'k':
             if (e.shiftKey) {
-              e.preventDefault();
               // Delete current line
               if (editorRef.current) {
                 const editor = editorRef.current;
@@ -746,7 +745,6 @@ const App = () => {
                 }]);
               }
             } else {
-              e.preventDefault();
               // Clear chat (existing functionality)
               setChatMessages([]);
               toast({
@@ -758,7 +756,6 @@ const App = () => {
             break;
           
           case 'f':
-            e.preventDefault();
             // Trigger Monaco's find dialog
             if (editorRef.current) {
               editorRef.current.trigger('keyboard', 'actions.find');
@@ -766,7 +763,6 @@ const App = () => {
             break;
           
           case 'h':
-            e.preventDefault();
             // Trigger Monaco's find and replace dialog
             if (editorRef.current) {
               editorRef.current.trigger('keyboard', 'editor.action.startFindReplaceAction');
@@ -774,7 +770,6 @@ const App = () => {
             break;
           
           case 'g':
-            e.preventDefault();
             // Go to line
             if (editorRef.current) {
               editorRef.current.trigger('keyboard', 'editor.action.gotoLine');
@@ -782,7 +777,6 @@ const App = () => {
             break;
           
           case 'b':
-            e.preventDefault();
             // Toggle file explorer/sidebar
             const sidebar = document.querySelector('.file-explorer');
             if (sidebar) {
@@ -791,28 +785,24 @@ const App = () => {
             break;
           
           case 'j':
-            e.preventDefault();
             // Toggle chat window
             setIsChatMinimized(!isChatMinimized);
             break;
           
           case 'p':
             if (e.shiftKey) {
-              e.preventDefault();
               // Show keyboard shortcuts help modal
               setShowShortcutsHelp(true);
             }
             break;
           
           case 't':
-            e.preventDefault();
             // Toggle theme
             toggleTheme();
             break;
           
           case 'v':
             if (e.shiftKey) {
-              e.preventDefault();
               // Show version history
               setShowVersionHistory(!showVersionHistory);
             }
@@ -820,7 +810,6 @@ const App = () => {
           
           case 'c':
             if (e.shiftKey) {
-              e.preventDefault();
               // Create checkpoint
               createCheckpoint();
             }
@@ -828,7 +817,6 @@ const App = () => {
           
           case 'l':
             if (e.shiftKey) {
-              e.preventDefault();
               // Select all occurrences of current word
               if (editorRef.current) {
                 editorRef.current.trigger('keyboard', 'editor.action.selectHighlights');
@@ -838,7 +826,6 @@ const App = () => {
           
           case 'i':
             if (e.shiftKey) {
-              e.preventDefault();
               // Auto-format document
               if (editorRef.current) {
                 editorRef.current.trigger('keyboard', 'editor.action.formatDocument');
@@ -853,7 +840,6 @@ const App = () => {
           
           case 'e':
             if (e.shiftKey) {
-              e.preventDefault();
               // Quick language switcher
               const popularLangs = getPopularLanguages();
               const langList = popularLangs.map((lang, i) => `${i + 1}. ${getLanguageDisplayName(lang)}`).join('\n');
@@ -872,7 +858,6 @@ const App = () => {
           
           case 'r':
             if (e.shiftKey) {
-              e.preventDefault();
               // Quick rename current file
               if (activeFile) {
                 const newName = prompt(`Rename file "${activeFile}" to:`, activeFile);
@@ -884,7 +869,6 @@ const App = () => {
             break;
           
           case 'w':
-            e.preventDefault();
             // Close current file (if multiple files exist)
             if (files.length > 1 && activeFile) {
               const confirmDelete = confirm(`Close file "${activeFile}"? This will delete it permanently.`);
@@ -896,7 +880,6 @@ const App = () => {
           
           case 'a':
             if (e.shiftKey) {
-              e.preventDefault();
               // Select all text in editor
               if (editorRef.current) {
                 editorRef.current.trigger('keyboard', 'editor.action.selectAll');
@@ -906,7 +889,6 @@ const App = () => {
           
           case 'm':
             if (e.shiftKey) {
-              e.preventDefault();
               // Toggle minimap
               if (editorRef.current) {
                 const currentOptions = editorRef.current.getOptions();
@@ -924,7 +906,6 @@ const App = () => {
           
           case 'q':
             if (e.shiftKey) {
-              e.preventDefault();
               // Quick actions menu
               const actions = [
                 '1. Format Document',
@@ -984,16 +965,13 @@ const App = () => {
           // Undo/Redo (existing functionality)
           case 'z':
             if (!e.shiftKey) {
-              e.preventDefault();
               handleUndo();
             } else {
-              e.preventDefault();
               handleRedo();
             }
             break;
           
           case 'y':
-            e.preventDefault();
             handleRedo();
             break;
         }

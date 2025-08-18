@@ -2,6 +2,10 @@
 import Room from '../models/Room.js';
 
 class RoomService {
+  constructor() {
+    this.rooms = new Map();
+  }
+
   // File management methods
   
   // Create new file in room
@@ -178,6 +182,35 @@ class RoomService {
     }
 
     return stats;
+  }
+
+  // Keyboard shortcuts service methods
+  
+  // Save file in room
+  saveFileInRoom(roomId, filename, code) {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      return room.updateFileCode(filename, code);
+    }
+    return { success: false, error: 'Room not found' };
+  }
+
+  // Update file code
+  updateFileCode(roomId, filename, code) {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      return room.updateFileCode(filename, code);
+    }
+    return { success: false, error: 'Room not found' };
+  }
+
+  // Update file language
+  updateFileLanguage(roomId, filename, language) {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      return room.updateFileLanguage(filename, language);
+    }
+    return { success: false, error: 'Room not found' };
   }
 }
 

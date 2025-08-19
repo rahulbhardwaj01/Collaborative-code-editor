@@ -402,7 +402,6 @@ const App = () => {
         { userName: "System", message: `Filename changed from "${oldFilename}" to "${newFilename}" by ${changedBy}` }
       ]);
     });
-    
     // Cursor position handlers
     const onCursorPosition = (payload) => {
       renderRemoteCursor(payload);

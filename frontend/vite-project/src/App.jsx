@@ -402,16 +402,6 @@ const App = () => {
         { userName: "System", message: `Filename changed from "${oldFilename}" to "${newFilename}" by ${changedBy}` }
       ]);
     });
-    
-    // Define cursor position handler
-    const onCursorPosition = () => {
-      
-    };
-
-    // Define cursor cleared handler
-    const onCursorCleared = () => {
-      
-    };
 
     // Cursor position handlers
     const onCursorPosition = (payload) => {

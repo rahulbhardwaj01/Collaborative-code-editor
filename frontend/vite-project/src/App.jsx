@@ -69,12 +69,6 @@ const App = () => {
   const [isChatDetached, setIsChatDetached] = useState(false);
   const [isChatMinimized, setIsChatMinimized] = useState(false);
 
-  // Monaco editor and remote cursors
-  const editorRef = useRef(null);
-  const decorationsRef = useRef({}); // userId -> decoration ids
-  const widgetsRef = useRef({}); // userId -> content widget
-  const colorCacheRef = useRef({}); // userId -> color
-
   // New state and ref for connection status
   const [isConnected, setIsConnected] = useState(socket.connected);
   const isInitialConnect = useRef(true);
@@ -571,7 +565,6 @@ const App = () => {
   };
 
   const leaveRoom = () => {
-    socket.emit("clearCursor", { roomId, userId: socket.id });
     socket.emit("leaveRoom");
     setJoined(false);
     setRoomId("");
@@ -590,7 +583,6 @@ const App = () => {
     setShowAllLanguages(false);
     setChatMessages([]);
     setChatInput("");
-    clearAllRemoteCursors();
     isInitialConnect.current = true; // Reset for the next connection
   };
 

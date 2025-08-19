@@ -129,6 +129,26 @@ const App = () => {
     };
   }, [toast]);
 
+
+  // Enhancement:
+  //  Show Active File in Browser Tab Title
+  useEffect(() => {
+    if (joined) {
+      if (activeFile) {
+        document.title = `${activeFile} — CodeRoom`;
+      } else {
+        document.title = `CodeRoom (${roomId})`;
+      }
+    } else {
+      document.title = 'Real-time Collaborative Code Editor';
+    }
+
+    // Optional: Cleanup function to reset the title when the user leaves
+    return () => {
+      document.title = 'Real-time Collaborative Code Editor';
+    };
+  }, [joined, activeFile, roomId]);
+
   const toggleTheme = () => {
     if (theme === "dark") {
       document.body.classList.add("light-mode");

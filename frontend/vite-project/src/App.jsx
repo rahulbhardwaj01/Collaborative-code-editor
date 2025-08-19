@@ -141,6 +141,83 @@ const App = () => {
     }
   };
 
+  // Helper: per-user color selection
+  const getUserColor = (userId) => {
+    if (colorCacheRef.current[userId]) return colorCacheRef.current[userId];
+    const palette = [
+      '#E57373', '#81C784', '#64B5F6', '#FFD54F', '#BA68C8',
+      '#4DB6AC', '#F06292', '#7986CB', '#A1887F', '#90A4AE'
+    ];
+    // Simple hash
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) >>> 0;
+    const color = palette[hash % palette.length];
+    colorCacheRef.current[userId] = color;
+    return color;
+  };
+
+  // Render a remote cursor decoration and label
+  const renderRemoteCursor = (payload) => {
+    const editor = editorRef.current;
+    if (!editor || !payload) return;
+    const model = editor.getModel();
+    if (!model) return;
+    const currentFileName = activeFile || filename;
+    if (!payload.filename || payload.filename !== currentFileName) return;
+
+    const { userId, userName, position } = payload;
+    const range = new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column);
+
+    // Update decoration
+    const opts = {
+      className: 'remote-cursor',
+      stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+      overviewRuler: { color: getUserColor(userId), position: monaco.editor.OverviewRulerLane.Center },
+      after: { content: '', inlineClassName: 'remote-cursor-inline' },
+      isWholeLine: false,
+    };
+    const newDecos = editor.deltaDecorations(decorationsRef.current[userId] || [], [{ range, options: opts }]);
+    decorationsRef.current[userId] = newDecos;
+
+    // Update/add content widget for name label
+    const id = `remote-cursor-widget-${userId}`;
+    const node = document.createElement('div');
+    node.className = 'remote-cursor-widget';
+    node.style.backgroundColor = getUserColor(userId);
+    node.textContent = (userName || 'User').slice(0, 12);
+
+    const widget = {
+      getId: () => id,
+      getDomNode: () => node,
+      getPosition: () => ({ position, preference: [monaco.editor.ContentWidgetPositionPreference.ABOVE, monaco.editor.ContentWidgetPositionPreference.BELOW] }),
+    };
+
+    // Remove previous widget if exists
+    if (widgetsRef.current[userId]) {
+      try { editor.removeContentWidget(widgetsRef.current[userId]); } catch {}
+    }
+    widgetsRef.current[userId] = widget;
+    editor.addContentWidget(widget);
+    editor.layoutContentWidget(widget);
+  };
+
+  const clearRemoteCursor = (userId) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (decorationsRef.current[userId]) {
+      editor.deltaDecorations(decorationsRef.current[userId], []);
+      delete decorationsRef.current[userId];
+    }
+    if (widgetsRef.current[userId]) {
+      try { editor.removeContentWidget(widgetsRef.current[userId]); } catch {}
+      delete widgetsRef.current[userId];
+    }
+  };
+
+  const clearAllRemoteCursors = () => {
+    Object.keys(decorationsRef.current).forEach(clearRemoteCursor);
+  };
+
   useEffect(() => {
     // User and room events
     socket.on("userJoined", (users) => setUsers(users));
@@ -316,18 +393,18 @@ const App = () => {
         { userName: "System", message: `Filename changed from "${oldFilename}" to "${newFilename}" by ${changedBy}` }
       ]);
     });
-    // Cursor position handlers
-    const onCursorPosition = (payload) => {
-      renderRemoteCursor(payload);
-    };
 
-    const onCursorCleared = (payload) => {
-      if (payload && payload.userId) {
-        clearRemoteCursor(payload.userId);
+    // Cursor position events
+    const onCursorPosition = (payload) => {
+      if (payload.userId !== socket.id) {
+        renderRemoteCursor(payload);
       }
     };
+    
+    const onCursorCleared = (payload) => {
+      clearRemoteCursor(payload.userId);
+    };
 
-    // Register cursor event listeners
     socket.on('cursorPosition', onCursorPosition);
     socket.on('cursorCleared', onCursorCleared);
 
@@ -472,7 +549,7 @@ const App = () => {
         // Fallback to legacy method
         socket.emit('codeChange', { roomId, code: newCode });
       }
-    }, 500);
+    }, 250);
 
     setCodeChangeTimeout(newTimeout);
 

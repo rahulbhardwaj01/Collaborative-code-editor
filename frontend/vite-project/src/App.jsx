@@ -65,12 +65,6 @@ const App = () => {
   const [isChatDetached, setIsChatDetached] = useState(false);
   const [isChatMinimized, setIsChatMinimized] = useState(false);
 
-  // Monaco editor and remote cursors
-  const editorRef = useRef(null);
-  const decorationsRef = useRef({}); // userId -> decoration ids
-  const widgetsRef = useRef({}); // userId -> content widget
-  const colorCacheRef = useRef({}); // userId -> color
-
   // New state and ref for connection status
   const [isConnected, setIsConnected] = useState(socket.connected);
   const isInitialConnect = useRef(true);
@@ -145,80 +139,6 @@ const App = () => {
       localStorage.setItem("theme", "dark");
       setTheme("dark");
     }
-  };
-
-  // Helper: per-user color selection
-  const getUserColor = (userId) => {
-    if (colorCacheRef.current[userId]) return colorCacheRef.current[userId];
-    const palette = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#f1c40f'];
-    // Simple hash
-    let hash = 0;
-    for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) >>> 0;
-    const color = palette[hash % palette.length];
-    colorCacheRef.current[userId] = color;
-    return color;
-  };
-
-  // Render a remote cursor decoration and label
-  const renderRemoteCursor = (payload) => {
-    const editor = editorRef.current;
-    if (!editor || !payload) return;
-    const model = editor.getModel();
-    if (!model) return;
-    const currentFileName = activeFile || filename;
-    if (!payload.filename || payload.filename !== currentFileName) return;
-
-    const { userId, userName, position } = payload;
-    const range = new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column);
-
-    // Update decoration
-    const opts = {
-      className: 'remote-cursor',
-      stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-      overviewRuler: { color: getUserColor(userId), position: monaco.editor.OverviewRulerLane.Center },
-      after: { content: '', inlineClassName: 'remote-cursor-inline' },
-      isWholeLine: false,
-    };
-    const newDecos = editor.deltaDecorations(decorationsRef.current[userId] || [], [{ range, options: opts }]);
-    decorationsRef.current[userId] = newDecos;
-
-    // Update/add content widget for name label
-    const id = `remote-cursor-widget-${userId}`;
-    const node = document.createElement('div');
-    node.className = 'remote-cursor-widget';
-    node.style.backgroundColor = getUserColor(userId);
-    node.textContent = (userName || 'User').slice(0, 12);
-
-    const widget = {
-      getId: () => id,
-      getDomNode: () => node,
-      getPosition: () => ({ position, preference: [monaco.editor.ContentWidgetPositionPreference.ABOVE, monaco.editor.ContentWidgetPositionPreference.BELOW] }),
-    };
-
-    // Remove previous widget if exists
-    if (widgetsRef.current[userId]) {
-      try { editor.removeContentWidget(widgetsRef.current[userId]); } catch {}
-    }
-    widgetsRef.current[userId] = widget;
-    editor.addContentWidget(widget);
-    editor.layoutContentWidget(widget);
-  };
-
-  const clearRemoteCursor = (userId) => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    if (decorationsRef.current[userId]) {
-      editor.deltaDecorations(decorationsRef.current[userId], []);
-      delete decorationsRef.current[userId];
-    }
-    if (widgetsRef.current[userId]) {
-      try { editor.removeContentWidget(widgetsRef.current[userId]); } catch {}
-      delete widgetsRef.current[userId];
-    }
-  };
-
-  const clearAllRemoteCursors = () => {
-    Object.keys(decorationsRef.current).forEach(clearRemoteCursor);
   };
 
   useEffect(() => {
@@ -305,8 +225,6 @@ const App = () => {
       setCode(file.code);
       setLanguage(file.language);
       setFilename(filename);
-      // Clear remote cursors when file changes
-      clearAllRemoteCursors();
       
       // Update files state to reflect active status
       setFiles(prev => prev.map(f => ({ 
@@ -400,17 +318,12 @@ const App = () => {
     });
 
     return () => {
-      socket.off('cursorPosition', onCursorPosition);
-      socket.off('cursorCleared', onCursorCleared);
       socket.off();
     };
   }, [roomId, userName, activeFile]);
 
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      try { socket.emit('clearCursor', { roomId, userId: socket.id }); } catch {}
-      socket.emit("leaveRoom");
-    };
+    const handleBeforeUnload = () => socket.emit("leaveRoom");
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
@@ -500,7 +413,6 @@ const App = () => {
   };
 
   const leaveRoom = () => {
-    socket.emit("clearCursor", { roomId, userId: socket.id });
     socket.emit("leaveRoom");
     setJoined(false);
     setRoomId("");
@@ -517,7 +429,6 @@ const App = () => {
     setShowAllLanguages(false);
     setChatMessages([]);
     setChatInput("");
-    clearAllRemoteCursors();
     isInitialConnect.current = true; // Reset for the next connection
   };
 
@@ -780,31 +691,6 @@ const App = () => {
     } else {
       console.log('[DEBUG] Monaco completion provider API not available');
     }
-
-    // Save editor instance for cursor presence
-    editorRef.current = editor;
-
-    // Emit local cursor movement
-    const sendCursor = (position) => {
-      if (!joined) return;
-      const payload = {
-        roomId,
-        filename: activeFile || filename,
-        position: { lineNumber: position.lineNumber, column: position.column },
-        userId: socket.id,
-        userName,
-      };
-      socket.emit('cursorMove', payload);
-    };
-
-    const cursorPosDisposable = editor.onDidChangeCursorPosition((e) => {
-      sendCursor(e.position);
-    });
-
-    // Clean up on unmount
-    editor.onDidDispose(() => {
-      cursorPosDisposable.dispose();
-    });
   };
 
    const handleJoinFromLanding = (newRoomId, newUserName) => {

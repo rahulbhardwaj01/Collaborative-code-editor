@@ -29,6 +29,8 @@ import BackToTop from "./components/ui/BackToTop";
 import * as monaco from "monaco-editor";
 
 const App = () => {
+  // Monaco editor ref for cursor and editor instance
+  const editorRef = useRef(null);
   // Compiler state
   const [compilerOutput, setCompilerOutput] = useState("");
   const [compilerError, setCompilerError] = useState("");

@@ -3,7 +3,6 @@ import "./App.css";
 import io from "socket.io-client";
 const socket = io("http://localhost:3000");
 import Editor from "@monaco-editor/react";
-import CompilerOutput from "./components/CompilerOutput";
 import VideoCall from "./VideoCall";
 import VersionHistory from "./VersionHistory";
 import ResizableLayout from "./components/ResizableLayout";
@@ -30,12 +29,6 @@ import * as monaco from 'monaco-editor';
 
 
 const App = () => {
-  // Monaco editor ref for cursor and editor instance
-  const editorRef = useRef(null);
-  // Compiler state
-  const [compilerOutput, setCompilerOutput] = useState("");
-  const [compilerError, setCompilerError] = useState("");
-  const [isCompiling, setIsCompiling] = useState(false);
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
@@ -837,9 +830,6 @@ const App = () => {
                 <small>
                   Current: <strong>{getLanguageDisplayName(language)}</strong>
                 </small>
-                <div style={{ fontSize: '10px', color: '#888', marginTop: '4px' }}>
-                  [DEBUG] language: {language}, currentFileLanguage: {currentFileLanguage}, filename: {filename}
-                </div>
               </div>
             </div>
             <button className="leave-button" onClick={leaveRoom}>
@@ -893,52 +883,10 @@ const App = () => {
               >
                 {isCreatingCheckpoint ? "Creating..." : "Checkpoint"}
               </button>
-              {/* C++ Compiler Button and Output Panel */}
-              {language === "cpp" && (
-                <>
-                  <button
-                    onClick={async () => {
-                      setIsCompiling(true);
-                      setCompilerOutput("");
-                      setCompilerError("");
-                      try {
-                        const res = await fetch("https://wandbox.org/api/compile.json", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            code: currentFileContent,
-                            compiler: "gcc-head",
-                            options: "-O2",
-                            stdin: "",
-                          }),
-                        });
-                        const data = await res.json();
-                        if (data.status === "0") {
-                          setCompilerOutput(data.program_output || "");
-                          setCompilerError("");
-                        } else {
-                          setCompilerOutput("");
-                          setCompilerError(data.compiler_error || data.program_error || "Unknown error");
-                        }
-                      } catch (err) {
-                        setCompilerError("Network or API error");
-                        setCompilerOutput("");
-                      }
-                      setIsCompiling(false);
-                    }}
-                    disabled={isCompiling}
-                    style={{ marginTop: 8 }}
-                  >
-                    {isCompiling ? "Compiling..." : "Run C++"}
-                  </button>
-                  <CompilerOutput output={compilerOutput} error={compilerError} isLoading={isCompiling} />
-                </>
-              )}
             </div>
           </div>
         }
         editor={
-              // ...existing code...
           <div className="editor-wrapper">
             <div className="editor-header">
               <span className="current-file-indicator">

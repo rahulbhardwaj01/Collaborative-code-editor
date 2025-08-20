@@ -31,7 +31,7 @@ import * as monaco from 'monaco-editor';
 const App = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
-  const [userName, setUserName] = useState("");
+  const [userName, setUserName] = useState(() => localStorage.getItem("userName") || "");
   
   // File management state
   const [files, setFiles] = useState([]);
@@ -345,6 +345,7 @@ const App = () => {
   const joinRoom = () => {
     if (!roomId || !userName)
       return alert("Please enter both Room Id and Your Name");
+    localStorage.setItem("userName", userName); // <-- Add this line
     socket.emit("join_room", { roomId, userName });
     setJoined(true);
 
@@ -431,6 +432,7 @@ const App = () => {
     setJoined(false);
     setRoomId("");
     setUserName("");
+    localStorage.removeItem("userName");
     setCode("// Welcome to the collaborative code editor\n// Start coding here...");
     setCurrentFileContent("// Welcome to the collaborative code editor\n// Start coding here...");
     setUsers([]);
@@ -710,6 +712,7 @@ const App = () => {
    const handleJoinFromLanding = (newRoomId, newUserName) => {
     setRoomId(newRoomId);
     setUserName(newUserName);
+    localStorage.setItem("userName", newUserName);
     socket.emit("join_room", { roomId: newRoomId, userName: newUserName });
     setJoined(true);
 

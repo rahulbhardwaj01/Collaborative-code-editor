@@ -902,15 +902,18 @@ const App = () => {
               </span>
             </div>
             <div style={{ position: "relative", height: "calc(100% - 40px)" }}>
+            
+            {/* Changed from defaultLanguage to language */}
+             {/* Defaultlanguage prop only sets the language when the editor first loads and doesn't update it afterward. */}
             <Editor
               height="100%"
-              defaultLanguage={currentFileLanguage}
-              value={currentFileContent || code}
+              language={currentFileLanguage} 
+              value={currentFileContent || code} 
               onChange={handleChange}
               onMount={handleEditorOnMount}
               theme={theme === "dark" ? "vs-dark" : "vs-light"}
               options={{
-                minimap: { enabled: false },
+                minimap:{ enabled: false },
                 fontSize: 14,
               }}
             />
